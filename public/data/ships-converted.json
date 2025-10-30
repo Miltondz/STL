@@ -1,0 +1,215 @@
+{
+  "version": "1.0.0",
+  "metadata": {
+    "title": "Navegador Galáctico - Content",
+    "author": "Conversion Script",
+    "lastModified": "2025-10-29T20:40:00.000Z",
+    "gameVersion": "1.0.0"
+  },
+  "encounters": [],
+  "hazards": [],
+  "cards": [],
+  "ships": [
+    {
+      "id": "IRON_FIST",
+      "name": "El Puño de Hierro",
+      "description": "Un coloso de acero, hecho para el combate directo. Nadie discute con su cañón principal.",
+      "image": "https://i.ibb.co/Rp4C1YTC/ship-01-fist.jpg",
+      "availability": "always",
+      "maxHull": 60,
+      "maxFuel": 12,
+      "maxShields": 20,
+      "specialAbility": {
+        "name": "Arsenal Pesado",
+        "description": "Comienzas con un espacio de módulo de arma adicional. Primera compra de arma tiene descuento de 3 Créditos.",
+        "effect": ""
+      },
+      "effects": [],
+      "metadata": {
+        "type": "player",
+        "subtype": "Combate",
+        "faction": "Militar",
+        "difficulty": 2,
+        "initialDeck": [
+          "BASE_DISPARO01",
+          "BASE_DISPARO01",
+          "BASE_DISPARO01",
+          "BASE_DISPARO01",
+          "BASE_MANIOBRA01",
+          "BASE_MANIOBRA01",
+          "BASE_OPERACIONES01",
+          "BASE_OPERACIONES01",
+          "CREW_ZARA_ARTILLERA",
+          "ATTACK_1"
+        ],
+        "initialCredits": 8,
+        "crewSlots": 1
+      }
+    },
+    {
+      "id": "MERCHANT",
+      "name": "El Mercader Errante",
+      "description": "De apariencia modesta, pero conectada con cada bazar y contrabandista del sector.",
+      "image": "https://i.ibb.co/fwnJfGG/ship-01-mercader.jpg",
+      "availability": "always",
+      "maxHull": 50,
+      "maxFuel": 15,
+      "maxShields": 25,
+      "specialAbility": {
+        "name": "Red de Contactos",
+        "description": "Precios de venta 15% mejores. Comienzas con 10 créditos adicionales.",
+        "effect": ""
+      },
+      "effects": [],
+      "metadata": {
+        "type": "player",
+        "subtype": "Comercio",
+        "faction": "Comerciante",
+        "difficulty": 1,
+        "initialDeck": [
+          "BASE_DISPARO01",
+          "BASE_DISPARO01",
+          "BASE_MANIOBRA01",
+          "BASE_MANIOBRA01",
+          "BASE_OPERACIONES01",
+          "BASE_OPERACIONES01",
+          "BASE_OPERACIONES01",
+          "BASE_OPERACIONES01",
+          "CREW_ZYX_COMERCIANTE",
+          "REPAIR_1"
+        ],
+        "initialCredits": 20,
+        "crewSlots": 1
+      }
+    },
+    {
+      "id": "SPECTRE",
+      "name": "El Espectro Silencioso",
+      "description": "Invisible a los radares, mortal en la oscuridad. Perfecta para quienes prefieren no ser vistos.",
+      "image": "https://i.ibb.co/mrDszMqq/ship-02-espectro.jpg",
+      "availability": "always",
+      "maxHull": 40,
+      "maxFuel": 20,
+      "maxShields": 10,
+      "specialAbility": {
+        "name": "Corredor Fantasma",
+        "description": "Gasta 2 combustible para tener un 50% de probabilidad de evitar combates no obligatorios.",
+        "effect": ""
+      },
+      "effects": [],
+      "metadata": {
+        "type": "player",
+        "subtype": "Sigilo",
+        "faction": "Sombras",
+        "difficulty": 3,
+        "initialDeck": [
+          "BASE_DISPARO01",
+          "BASE_DISPARO01",
+          "BASE_MANIOBRA01",
+          "BASE_MANIOBRA01",
+          "BASE_MANIOBRA01",
+          "BASE_MANIOBRA01",
+          "BASE_OPERACIONES01",
+          "CREW_GLITCH_SABOTEADOR",
+          "DEFEND_1"
+        ],
+        "initialCredits": 5,
+        "crewSlots": 1
+      }
+    },
+    {
+      "id": "PIRATE_RAIDER",
+      "name": "Incursor Pirata",
+      "description": "Enemigo de combate - 5 de daño base",
+      "image": "https://i.ibb.co/cc3KwbCG/ship-50-pirata.jpg",
+      "availability": "hidden",
+      "maxHull": 20,
+      "maxFuel": 0,
+      "maxShields": 10,
+      "specialAbility": {
+        "name": "Patrón de Combate",
+        "description": "Patrón: ATTACK → ATTACK_DEFEND → ATTACK",
+        "effect": "ATTACK,ATTACK_DEFEND,ATTACK"
+      },
+      "effects": [],
+      "metadata": {
+        "type": "enemy",
+        "baseDamage": 5,
+        "reward": {
+          "credits": 8,
+          "xpReward": 25
+        },
+        "pattern": [
+          "ATTACK",
+          "ATTACK_DEFEND",
+          "ATTACK"
+        ],
+        "patternIndex": 0
+      }
+    },
+    {
+      "id": "HEAVY_DRONE",
+      "name": "Dron Pesado",
+      "description": "Enemigo de combate - 7 de daño base",
+      "image": "https://i.ibb.co/fYVmhtxT/ship-52-dron.jpg",
+      "availability": "hidden",
+      "maxHull": 30,
+      "maxFuel": 0,
+      "maxShields": 5,
+      "specialAbility": {
+        "name": "Patrón de Combate",
+        "description": "Patrón: DEFEND → ATTACK → ATTACK",
+        "effect": "DEFEND,ATTACK,ATTACK"
+      },
+      "effects": [],
+      "metadata": {
+        "type": "enemy",
+        "baseDamage": 7,
+        "reward": {
+          "credits": 12,
+          "xpReward": 40
+        },
+        "pattern": [
+          "DEFEND",
+          "ATTACK",
+          "ATTACK"
+        ],
+        "patternIndex": 0
+      }
+    },
+    {
+      "id": "MINIBOSS_CORVETTE",
+      "name": "Corbeta de Élite",
+      "description": "Enemigo de combate - 8 de daño base",
+      "image": "https://i.ibb.co/S7JwCS5b/ship-30-destructor.jpg",
+      "availability": "hidden",
+      "maxHull": 50,
+      "maxFuel": 0,
+      "maxShields": 25,
+      "specialAbility": {
+        "name": "Patrón de Combate",
+        "description": "Patrón: DEFEND → ATTACK → BUFF → ATTACK",
+        "effect": "DEFEND,ATTACK,BUFF,ATTACK"
+      },
+      "effects": [],
+      "metadata": {
+        "type": "enemy",
+        "baseDamage": 8,
+        "reward": {
+          "credits": 30,
+          "xpReward": 100
+        },
+        "pattern": [
+          "DEFEND",
+          "ATTACK",
+          "BUFF",
+          "ATTACK"
+        ],
+        "patternIndex": 0
+      }
+    }
+  ],
+  "shops": [],
+  "dialogues": [],
+  "eventChains": []
+}

@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Navegador Galáctico Procedural</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto:wght@300;400;700&display=swap');
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+    body {
+      font-family: 'Roboto', sans-serif;
+      transition: all 0.5s ease;
+    }
+    #root {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+    h1, h2, h3, h4, h5, h6, .font-orbitron {
+      font-family: 'Orbitron', sans-serif;
+    }
+
+    /* --- Fondos --- */
+    .stars, .twinkling, .hangar-background, .game-background {
+      position:fixed;
+      top:0;
+      left:0;
+      right:0;
+      bottom:0;
+      width:100%;
+      height:100%;
+      display:block;
+    }
+    .stars {
+      background:#000 url(https://www.script-tutorials.com/demos/360/images/stars.png) repeat top center;
+      z-index:-4;
+    }
+    .twinkling{
+      background:transparent url(https://www.script-tutorials.com/demos/360/images/twinkling.png) repeat top center;
+      z-index:-3;
+      animation:move-twink-back 200s linear infinite;
+      transition: opacity 1s ease-in-out, animation-duration 0.5s ease-in-out;
+    }
+    .hangar-background {
+        background: url('https://i.ibb.co/jPnrT0Hq/hangar-01-seleccion.jpg') no-repeat center center;
+        background-size: cover;
+        z-index: -2;
+        opacity: 0;
+        transition: opacity 1s ease-in-out, transform 0.2s linear;
+    }
+    .game-background {
+        background: url('https://i.ibb.co/5JR36bD/mapa-00-back.jpg') no-repeat center center;
+        background-size: cover;
+        z-index: -1;
+        opacity: 0;
+        transition: opacity 1s ease-in-out;
+    }
+    
+    @keyframes hangar-breathing {
+      0%, 100% { filter: brightness(1.0); }
+      50% { filter: brightness(1.1); }
+    }
+    body.start-screen .twinkling,
+    body.in-hangar .twinkling {
+        opacity: 0;
+    }
+    body.in-hangar .hangar-background {
+        opacity: 1;
+        animation: hangar-breathing 8s infinite ease-in-out;
+    }
+    body.in-game .game-background {
+        opacity: 1;
+    }
+    
+    @keyframes move-twink-back {
+      from {background-position:0 0;}
+      to {background-position:-10000px 5000px;}
+    }
+
+    /* Efecto de "Salto Hiperespacial" */
+    @keyframes hyperspace-jump {
+        0% { filter: blur(0px); opacity: 1; }
+        50% { filter: blur(8px); opacity: 0.8; }
+        99% { filter: blur(16px); opacity: 0; }
+        100% { filter: blur(0px); opacity: 0; }
+    }
+    .hyperspace-jump-active {
+        animation: hyperspace-jump 1s ease-in-out forwards;
+    }
+    
+    body.is-traveling .twinkling {
+      animation-duration: 2s;
+    }
+
+    /* --- Animaciones de UI --- */
+    @keyframes fade-in {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    .animate-fade-in {
+      animation: fade-in 0.3s ease-out forwards;
+    }
+
+    @keyframes fade-in-up {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fade-in-up {
+      animation: fade-in-up 0.5s ease-out forwards;
+    }
+
+    @keyframes fade-in-from-bottom {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fade-in-from-bottom {
+      animation: fade-in-from-bottom 0.5s ease-out forwards;
+    }
+
+    /* --- Animaciones de Nodos --- */
+    @keyframes pulse-glow {
+      0%, 100% {
+        filter: drop-shadow(0 0 2px #67e8f9) drop-shadow(0 0 4px #67e8f9);
+      }
+      50% {
+        filter: drop-shadow(0 0 5px #a5f3fc) drop-shadow(0 0 10px #a5f3fc);
+      }
+    }
+    .node-available {
+      animation: pulse-glow 2.5s infinite ease-in-out;
+    }
+
+    /* --- Estilos de Combate --- */
+    .progress-bar-bg {
+        background-color: #374151; /* gray-700 */
+        border-radius: 9999px;
+        overflow: hidden;
+        border: 1px solid #4b5563; /* gray-600 */
+    }
+    .progress-bar-fill {
+        height: 100%;
+        border-radius: 9999px;
+        transition: width 0.5s ease-in-out;
+        text-align: center;
+        color: white;
+        font-size: 0.75rem;
+        line-height: 1rem;
+        font-weight: bold;
+    }
+    @keyframes damage-flash {
+        0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        50% { box-shadow: 0 0 15px 5px rgba(239, 68, 68, 0.7); } /* red-500 with opacity */
+        100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+    }
+    .animate-damage-flash {
+        animation: damage-flash 0.5s ease-out;
+    }
+    
+    /* --- Efecto Máquina de Escribir --- */
+    @keyframes blink {
+      50% { opacity: 0; }
+    }
+    .typing-cursor {
+      animation: blink 1s step-end infinite;
+    }
+
+    /* --- Efectos del Hangar --- */
+    @keyframes float-particle {
+        0% { transform: translateY(0); opacity: 0; }
+        10%, 90% { opacity: 1; }
+        100% { transform: translateY(-100vh); opacity: 0; }
+    }
+    @keyframes engine-flicker {
+      0%, 100% { box-shadow: 0 0 10px 2px rgba(255, 165, 0, 0.3), 0 0 20px 5px rgba(255, 165, 0, 0.2); opacity: 0.8; }
+      50% { box-shadow: 0 0 15px 4px rgba(255, 165, 0, 0.5), 0 0 25px 8px rgba(255, 165, 0, 0.3); opacity: 1; }
+    }
+    @keyframes light-sweep {
+      0% { transform: translateX(-100%) skewX(-30deg); }
+      100% { transform: translateX(250%) skewX(-30deg); }
+    }
+  </style>
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@18.2.0",
+    "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+<body class="text-gray-200">
+  <div class="stars"></div>
+  <div class="twinkling"></div>
+  <div class="hangar-background"></div>
+  <div class="game-background"></div>
+  <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+</html>

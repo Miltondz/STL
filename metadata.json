@@ -1,0 +1,5 @@
+{
+  "name": "Navegador Galáctico Procedural",
+  "description": "Una aplicación de React que simula un sistema de mapa y navegación entre nodos galácticos, basado en un documento de diseño de juego. Los jugadores viajan a través de un mapa generado proceduralmente, encontrando eventos resueltos a través de un sistema de cartas.",
+  "requestFramePermissions": []
+}
