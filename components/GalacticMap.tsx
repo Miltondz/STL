@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { Node as NodeTypeData, NodeType } from '../types';
 import { NodeIcon } from './Icons';
 import { NODE_COLORS } from '../constants';
@@ -86,26 +86,76 @@ const MapNode: React.FC<{ node: NodeTypeData; isCurrent: boolean; isAvailable: b
   );
 };
 
-// Token de la nave del jugador
-const PlayerShipToken: React.FC<{ x: number; y: number }> = ({ x, y }) => (
-  <g transform={`translate(${x}, ${y})`}>
-    {/* Nave espacial simple */}
-    <g transform="scale(0.8)">
-      <path 
-        d="M 0,-2 L -1,1 L -0.5,0.8 L 0,2 L 0.5,0.8 L 1,1 Z" 
-        fill="#67e8f9" 
-        stroke="#0891b2" 
-        strokeWidth="0.2"
-        className="animate-pulse"
-      />
-      {/* Motor brillante */}
-      <circle cx="0" cy="1.5" r="0.4" fill="#fbbf24" className="animate-pulse" />
+// Token de la nave del jugador con animación de movimiento
+const PlayerShipToken: React.FC<{ x: number; y: number; isMoving?: boolean }> = ({ x, y, isMoving }) => {
+  const tokenStyle: React.CSSProperties = isMoving ? {
+    animation: 'none'
+  } : {};
+
+  return (
+    <g transform={`translate(${x}, ${y})`} style={tokenStyle}>
+      {/* Nave espacial simple */}
+      <g transform="scale(0.8)">
+        <path 
+          d="M 0,-2 L -1,1 L -0.5,0.8 L 0,2 L 0.5,0.8 L 1,1 Z" 
+          fill="#67e8f9" 
+          stroke="#0891b2" 
+          strokeWidth="0.2"
+          className={isMoving ? "" : "animate-pulse"}
+        />
+        {/* Motor brillante */}
+        <circle cx="0" cy="1.5" r="0.4" fill="#fbbf24" className={isMoving ? "animate-pulse" : "animate-pulse"} />
+      </g>
     </g>
-  </g>
-);
+  );
+};
 
 export const GalacticMap: React.FC<GalacticMapProps> = ({ nodes, currentNodeId, onNodeSelect }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
+  const [animatingTo, setAnimatingTo] = useState<{ x: number; y: number } | null>(null);
+  const [displayX, setDisplayX] = useState(0);
+  const [displayY, setDisplayY] = useState(0);
+
+  useEffect(() => {
+    const nodeMap = new Map<number, NodeTypeData>(nodes.map(node => [node.id, node]));
+    const currentNode = nodeMap.get(currentNodeId);
+    if (currentNode) {
+      setDisplayX(currentNode.x);
+      setDisplayY(currentNode.y);
+    }
+  }, [currentNodeId, nodes]);
+
+  useEffect(() => {
+    // Animar el movimiento del token de la nave
+    if (animatingTo) {
+      const startX = displayX;
+      const startY = displayY;
+      const endX = animatingTo.x;
+      const endY = animatingTo.y;
+      const duration = 800; // Duración de la animación en ms
+      const startTime = Date.now();
+
+      const animate = () => {
+        const elapsed = Date.now() - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+
+        // Interpolación suave (ease-in-out)
+        const easeProgress = progress < 0.5 ? 2 * progress * progress : -1 + (4 - 2 * progress) * progress;
+
+        setDisplayX(startX + (endX - startX) * easeProgress);
+        setDisplayY(startY + (endY - startY) * easeProgress);
+
+        if (progress < 1) {
+          requestAnimationFrame(animate);
+        } else {
+          setAnimatingTo(null);
+        }
+      };
+
+      const animationId = requestAnimationFrame(animate);
+      return () => cancelAnimationFrame(animationId);
+    }
+  }, [animatingTo, displayX, displayY]);
 
   useEffect(() => {
     // Esta función centra automáticamente el mapa en el nodo actual.
@@ -143,6 +193,18 @@ export const GalacticMap: React.FC<GalacticMapProps> = ({ nodes, currentNodeId, 
   if (nodes.length === 0) {
     return null;
   }
+
+  const handleNodeSelect = (nodeId: number) => {
+    const nodeMap = new Map<number, NodeTypeData>(nodes.map(node => [node.id, node]));
+    const targetNode = nodeMap.get(nodeId);
+    if (targetNode) {
+      setAnimatingTo({ x: targetNode.x, y: targetNode.y });
+      // Llamar al callback después de que termine la animación
+      setTimeout(() => {
+        onNodeSelect(nodeId);
+      }, 800);
+    }
+  };
 
   const nodeMap = new Map<number, NodeTypeData>(nodes.map(node => [node.id, node]));
   const currentNode = nodeMap.get(currentNodeId);
@@ -205,14 +267,12 @@ export const GalacticMap: React.FC<GalacticMapProps> = ({ nodes, currentNodeId, 
             node={node}
             isCurrent={node.id === currentNodeId}
             isAvailable={availableNodeIds.has(node.id)}
-            onSelect={() => onNodeSelect(node.id)}
+            onSelect={() => handleNodeSelect(node.id)}
           />
         ))}
         
         {/* Token de la nave del jugador */}
-        {currentNode && (
-          <PlayerShipToken x={currentNode.x} y={currentNode.y} />
-        )}
+        <PlayerShipToken x={displayX} y={displayY} isMoving={animatingTo !== null} />
       </svg>
     </div>
   );
