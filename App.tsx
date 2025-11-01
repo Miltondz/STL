@@ -1,13 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useEffect } from 'react';
 
-// Types
-import { MapData, PlayerState, CombatState, EventCardData, ShopInventory, CardInstance, ShipData, EventConsequenceResult, SimulationResult, ShopCard, ShopServiceType, EventOption } from './types';
-
-// Services
-import { generateMap } from './services/mapGenerator';
-import { resolveNode, resetEventCardStates } from './services/eventManager';
-import * as combatEngine from './services/combatEngine';
-import { generateShopInventory } from './services/shopManager';
+// Context & Hooks
+import { useGame } from './contexts/GameContext';
+import { useGameHandlers } from './hooks/useGameHandlers';
 
 // Components
 import { GalacticMap } from './components/GalacticMap';
@@ -24,38 +19,49 @@ import { HangarScreen } from './components/HangarScreen';
 import { StartScreen } from './components/StartScreen';
 import { NodeViewer } from './components/NodeViewer';
 
-// Data
-import { ALL_CARDS } from './data/cards';
-import { BASE_PLAYER_STATE, LEVEL_THRESHOLDS } from './constants';
+// Services
 import contentLoader from './services/contentLoader';
 
-// --- Helper Functions ---
-const createCardInstance = (cardId: string): CardInstance => ({
-  instanceId: `${cardId}_${Date.now()}_${Math.random()}`,
-  cardId,
-});
-
 function App() {
-  const [gamePhase, setGamePhase] = useState<'START_SCREEN' | 'HANGAR' | 'IN_GAME' | 'PRE_COMBAT' | 'COMBAT' | 'EVENT' | 'SHOP' | 'CARD_REWARD' | 'LEVEL_UP' | 'SIMULATION_RESULT' | 'GAME_OVER'>('START_SCREEN');
-  const [contentLoaded, setContentLoaded] = useState(false);
+  // Estado global desde Context
+  const {
+    gamePhase,
+    contentLoaded,
+    playerState,
+    mapData,
+    currentNodeId,
+    logs,
+    isTraveling,
+    activeEvent,
+    eventResult,
+    activeCombat,
+    preCombatEnemyId,
+    cardRewards,
+    rewardTitle,
+    shopInventory,
+    simulationResult,
+    pendingLevelUps,
+    setContentLoaded,
+  } = useGame();
 
-  // Game State
-  const [playerState, setPlayerState] = useState<PlayerState | null>(null);
-  const [mapData, setMapData] = useState<MapData | null>(null);
-  const [currentNodeId, setCurrentNodeId] = useState<number | null>(null);
-  const [logs, setLogs] = useState<string[]>(["Bitácora de viaje iniciada."]);
-  const [isTraveling, setIsTraveling] = useState(false);
-
-  // Modal/Screen States
-  const [activeEvent, setActiveEvent] = useState<EventCardData | null>(null);
-  const [eventResult, setEventResult] = useState<EventConsequenceResult | null>(null);
-  const [activeCombat, setActiveCombat] = useState<CombatState | null>(null);
-  const [preCombatEnemyId, setPreCombatEnemyId] = useState<string | null>(null);
-  const [cardRewards, setCardRewards] = useState<string[]>([]);
-  const [rewardTitle, setRewardTitle] = useState("Elige tu Recompensa");
-  const [shopInventory, setShopInventory] = useState<ShopInventory | null>(null);
-  const [simulationResult, setSimulationResult] = useState<SimulationResult | null>(null);
-  const [pendingLevelUps, setPendingLevelUps] = useState(0);
+  // Handlers desde custom hook
+  const {
+    handleShowHangar,
+    handleReturnToStartScreen,
+    handleStartGame,
+    handleNodeSelect,
+    handleEventOptionSelect,
+    handleEventComplete,
+    handleStartCombat,
+    handlePlayCard,
+    handleEndTurn,
+    handleCombatComplete,
+    handleCardRewardSelect,
+    handleLevelUpReward,
+    handleBuyCard,
+    handlePerformService,
+    handleSimulationComplete,
+  } = useGameHandlers();
   
   // Cargar contenido al inicio
   useEffect(() => {
@@ -97,263 +103,6 @@ function App() {
         break;
     }
   }, [gamePhase]);
-
-  const addLog = useCallback((message: string) => {
-    setLogs(prev => [...prev.slice(-50), message]);
-  }, []);
-
-  // --- Game Flow Handlers ---
-
-  const handleShowHangar = () => {
-    setGamePhase('HANGAR');
-  };
-  
-  const handleReturnToStartScreen = () => {
-    setGamePhase('START_SCREEN');
-  };
-
-  const handleStartGame = (ship: ShipData) => {
-      // Reiniciar estado de eventos para nueva partida
-      resetEventCardStates();
-      
-      const initialDeck = ship.initialDeck.map(createCardInstance);
-      const newPlayerState: PlayerState = {
-          ...BASE_PLAYER_STATE,
-          name: ship.name,
-          image: ship.image,
-          fuel: ship.initialFuel,
-          credits: ship.initialCredits,
-          crew: ship.crew,
-          hull: ship.maxHull,
-          maxHull: ship.maxHull,
-          shields: ship.maxShields,
-          maxShields: ship.maxShields,
-          deck: initialDeck,
-      };
-      setPlayerState(newPlayerState);
-
-      const newMap = generateMap();
-      setMapData(newMap);
-      setCurrentNodeId(newMap.startNodeId);
-      setLogs([`Has despegado con "${ship.name}". ¡Que la suerte te acompañe!`]);
-      
-      const hangarScreen = document.getElementById('hangar-screen');
-      if (hangarScreen) {
-        hangarScreen.classList.add('hyperspace-jump-active');
-        setTimeout(() => {
-            setGamePhase('IN_GAME');
-        }, 1000);
-      } else {
-        setGamePhase('IN_GAME');
-      }
-  };
-
-  const handleNodeSelect = (nodeId: number) => {
-    if (!playerState || !mapData) return;
-
-    document.body.classList.add('is-traveling');
-    setIsTraveling(true);
-    
-    setTimeout(() => {
-      document.body.classList.remove('is-traveling');
-      setIsTraveling(false);
-      
-      const newPlayerState = { ...playerState, fuel: playerState.fuel - 1 };
-      const newNodes = mapData.nodes.map(n => n.id === nodeId ? { ...n, visited: true } : n);
-      setMapData({ ...mapData, nodes: newNodes });
-      setCurrentNodeId(nodeId);
-
-      const selectedNode = mapData.nodes.find(n => n.id === nodeId)!;
-      addLog(`Viajando al nodo ${selectedNode.type}. Combustible restante: ${newPlayerState.fuel}`);
-
-      const resolution = resolveNode(selectedNode.type, newPlayerState);
-      
-      if (resolution.card) {
-          setActiveEvent(resolution.card);
-          setGamePhase('EVENT');
-      } else if (resolution.combat) {
-          setPreCombatEnemyId(resolution.combat.enemyId);
-          setGamePhase('PRE_COMBAT');
-      } else if (resolution.shop) {
-          setShopInventory(generateShopInventory());
-          setGamePhase('SHOP');
-      } else if (resolution.simulation) {
-          setSimulationResult(resolution.simulation);
-          setPlayerState(resolution.simulation.newState);
-          addLog(resolution.simulation.log);
-          setGamePhase('SIMULATION_RESULT');
-      }
-      setPlayerState(newPlayerState);
-
-    }, 500);
-  };
-
-  const handleGainXp = useCallback((xp: number) => {
-    if (!playerState) return;
-    addLog(`Ganas ${xp} XP.`);
-
-    let newXp = playerState.xp + xp;
-    let newLevel = playerState.level;
-    let newXpToNext = playerState.xpToNextLevel;
-    let levelUps = 0;
-
-    while (newXp >= newXpToNext && newLevel < LEVEL_THRESHOLDS.length - 1) {
-      newXp -= newXpToNext;
-      newLevel++;
-      levelUps++;
-      newXpToNext = LEVEL_THRESHOLDS[newLevel];
-      addLog(`¡Has alcanzado el nivel ${newLevel}!`);
-    }
-
-    setPlayerState(prev => prev ? { ...prev, xp: newXp, level: newLevel, xpToNextLevel: newXpToNext } : null);
-    if (levelUps > 0) {
-      setPendingLevelUps(prev => prev + levelUps);
-    }
-  }, [playerState, addLog]);
-
-  const handleEventOptionSelect = (option: EventOption) => {
-      if (!playerState) return;
-      const result = option.consequence(playerState);
-      setEventResult(result);
-      setPlayerState(result.newState);
-      if(result.reactionText) addLog(`💬 ${result.reactionText}`);
-      addLog(result.log);
-      if(result.xpGained) handleGainXp(result.xpGained);
-      if(result.achievementId) addLog(`🏆 Logro Desbloqueado: ${result.achievementId}`);
-  };
-
-  const handleEventComplete = () => {
-      setActiveEvent(null);
-      setEventResult(null);
-      if (pendingLevelUps > 0) {
-          setGamePhase('LEVEL_UP');
-      } else {
-          setGamePhase('IN_GAME');
-      }
-  };
-
-  const handleStartCombat = () => {
-    if (!playerState || !preCombatEnemyId) return;
-    const newCombat = combatEngine.createCombat(playerState, preCombatEnemyId, Date.now());
-    setActiveCombat(newCombat);
-    setGamePhase('COMBAT');
-    setPreCombatEnemyId(null);
-  };
-
-  const handlePlayCard = (cardInstanceId: string) => {
-      if (!activeCombat) return;
-      const enemy = activeCombat.combatants.find(c => !c.isPlayer);
-      if(!enemy) return;
-      setActiveCombat(combatEngine.playCard(activeCombat, cardInstanceId, enemy.id));
-  };
-  
-  const handleEndTurn = () => {
-      if (!activeCombat) return;
-      setActiveCombat(combatEngine.resolveTurn(activeCombat));
-  };
-
-  const handleCombatComplete = (finalState: CombatState) => {
-    if (!playerState) return;
-    
-    const playerCombatant = finalState.combatants.find(c => c.isPlayer)!;
-    const enemyCombatant = finalState.combatants.find(c => !c.isPlayer)!;
-    let newState = { ...playerState, hull: playerCombatant.hp, shields: playerCombatant.shield };
-
-    if (finalState.victory) {
-        const creditsGained = enemyCombatant.reward?.credits || 0;
-        const xpGained = enemyCombatant.reward?.xpReward || 0;
-        
-        newState.credits += creditsGained;
-        addLog(`Recuperas ${creditsGained} créditos de los restos.`);
-        
-        setPlayerState(newState);
-        if (xpGained > 0) handleGainXp(xpGained);
-
-        const rewards = Object.values(ALL_CARDS).filter(c => c.rarity === 'Uncommon' || c.rarity === 'Common' && c.price > 0);
-        const shuffled = [...rewards].sort(() => 0.5 - Math.random());
-        setCardRewards(shuffled.slice(0, 3).map(c => c.id));
-        setRewardTitle("Recompensa de Combate");
-        setGamePhase('CARD_REWARD');
-
-    } else {
-        setPlayerState(newState);
-        addLog("Tu aventura ha terminado.");
-        setGamePhase('GAME_OVER');
-    }
-    setActiveCombat(null);
-  };
-  
-  const handleCardRewardSelect = (cardId: string) => {
-    if (!playerState) return;
-
-    const newCardInstance = createCardInstance(cardId);
-    setPlayerState(prev => prev ? { ...prev, deck: [...prev.deck, newCardInstance] } : null);
-    addLog(`"${ALL_CARDS[cardId].name}" añadido a tu mazo.`);
-    setCardRewards([]);
-
-    if (pendingLevelUps > 0) {
-      setGamePhase('LEVEL_UP');
-    } else {
-      setGamePhase('IN_GAME');
-    }
-  };
-
-  const handleLevelUpReward = (rewardType: 'HULL' | 'ENERGY' | 'CARD') => {
-      setPlayerState(prev => {
-          if (!prev) return null;
-          switch (rewardType) {
-              case 'HULL':
-                  addLog("Casco máximo aumentado en 5.");
-                  return { ...prev, maxHull: prev.maxHull + 5, hull: prev.hull + 5 };
-              case 'ENERGY':
-                  addLog("Energía máxima en combate aumentada en 1. (Efecto futuro)");
-                  return prev;
-              case 'CARD':
-                  const rareRewards = Object.values(ALL_CARDS).filter(c => c.rarity === 'Rare');
-                  const shuffled = [...rareRewards].sort(() => 0.5 - Math.random());
-                  setCardRewards(shuffled.slice(0, 3).map(c => c.id));
-                  setRewardTitle("Mejora de Nivel: Elige una Carta Rara");
-                  setGamePhase('CARD_REWARD');
-                  return prev;
-          }
-          return prev;
-      });
-      setPendingLevelUps(prev => prev - 1);
-      if (pendingLevelUps <= 1 && rewardType !== 'CARD') {
-          setGamePhase('IN_GAME');
-      }
-  };
-
-  const handleBuyCard = (card: ShopCard) => {
-      if (!playerState || playerState.credits < card.price) return;
-      const newCard = createCardInstance(card.cardId);
-      setPlayerState(prev => ({ ...prev!, credits: prev!.credits - card.price, deck: [...prev!.deck, newCard] }));
-      addLog(`Has comprado "${ALL_CARDS[card.cardId].name}".`);
-  };
-
-  const handlePerformService = (serviceType: ShopServiceType, cardInstanceId?: string) => {
-    if (!playerState) return;
-    const service = shopInventory?.services.find(s => s.type === serviceType);
-    if (!service || playerState.credits < service.price) return;
-
-    if (serviceType === 'remove_card' && cardInstanceId) {
-        setPlayerState(prev => ({
-            ...prev!,
-            credits: prev!.credits - service.price,
-            deck: prev!.deck.filter(c => c.instanceId !== cardInstanceId)
-        }));
-        addLog(`Has eliminado una carta de tu mazo.`);
-    }
-  };
-
-  const handleSimulationComplete = () => {
-    setSimulationResult(null);
-    if (pendingLevelUps > 0) {
-        setGamePhase('LEVEL_UP');
-    } else {
-        setGamePhase('IN_GAME');
-    }
-  };
   
   // Mostrar pantalla de carga mientras se carga el contenido
   if (!contentLoaded) {

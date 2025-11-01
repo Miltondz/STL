@@ -324,3 +324,40 @@ button:active:not(:disabled) {
 .cardfx-3d { animation: cardfx-3d 1.2s ease-in-out; transform-style: preserve-3d; }
 .cardfx-turbulence { animation: cardfx-turbulence 0.8s ease-in-out forwards; }
 .cardfx-dissolve { animation: cardfx-dissolve 0.8s ease-in-out forwards; }
+
+/* ---- Particle Burst Effects ---- */
+@keyframes particle-burst {
+  0% { 
+    opacity: 1; 
+    transform: scale(0) translate(0, 0); 
+  }
+  100% { 
+    opacity: 0; 
+    transform: scale(2) translate(var(--tx), var(--ty)); 
+  }
+}
+
+.particle {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  pointer-events: none;
+  animation: particle-burst 0.8s ease-out forwards;
+  z-index: 50;
+}
+
+.particle-damage { background: #ef4444; box-shadow: 0 0 4px #ef4444; }
+.particle-heal { background: #22c55e; box-shadow: 0 0 4px #22c55e; }
+.particle-shield { background: #06b6d4; box-shadow: 0 0 4px #06b6d4; }
+
+/* ---- Panel Shake Effect ---- */
+@keyframes panel-shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
+  20%, 40%, 60%, 80% { transform: translateX(4px); }
+}
+
+.panel-shake {
+  animation: panel-shake 0.5s ease-in-out;
+}
