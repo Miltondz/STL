@@ -1,7 +1,9 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { CombatState, Combatant, CardInstance, EnemyIntent } from '../types';
+import { CombatState, CardInstance, EnemyIntent } from '../types';
 import { Card } from './Card';
 import { ALL_CARDS } from '../data/cards';
+import { ParticleBurst } from './ParticleBurst';
+import { PlanetCanvas } from './PlanetCanvas';
 
 // Componente para números de daño flotantes
 interface FloatingNumber {
@@ -78,6 +80,15 @@ const IntentIcon: React.FC<{ intent: EnemyIntent }> = ({ intent }) => {
     );
 };
 
+// Simple background wrapper to render a seeded planet
+const PlanetBackground: React.FC<{ enemyName: string }> = ({ enemyName }) => {
+  const seed = Array.from(enemyName).reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
+  return (
+    <div className="w-full h-full">
+      <PlanetCanvas seed={seed} className="w-full h-full" />
+    </div>
+  );
+};
 
 // Panel que muestra la información de un combatiente (NUEVO DISEÑO COMPACTO)
 const CombatantPanel: React.FC<{ combatant: Combatant; onDamage?: (amount: number) => void }> = ({ combatant, onDamage }) => {
@@ -192,13 +203,16 @@ export const CombatInterface: React.FC<CombatInterfaceProps> = ({ combatState, o
     const [usedCards, setUsedCards] = useState<CardInstance[]>([]);
     const [zoomedCard, setZoomedCard] = useState<CardInstance | null>(null);
 
+    // Refs a paneles para efectos
+    const playerPanelRef = useRef<HTMLDivElement>(null);
+    const enemyPanelRef = useRef<HTMLDivElement>(null);
+
     // Sistema de números flotantes
     const [floatingNumbers, setFloatingNumbers] = useState<FloatingNumber[]>([]);
     const floatingNumberIdRef = useRef(0);
     
     const addFloatingNumber = (value: number, type: FloatingNumber['type'], targetIsPlayer: boolean) => {
         const id = `float-${floatingNumberIdRef.current++}`;
-        // Calcular posición en viewport (aproximadamente donde está el canvas)
         const xPercent = targetIsPlayer ? 20 : 60;
         const yPercent = 35;
         setFloatingNumbers(prev => [...prev, { id, value, type, x: xPercent, y: yPercent }]);
@@ -208,15 +222,72 @@ export const CombatInterface: React.FC<CombatInterfaceProps> = ({ combatState, o
         setFloatingNumbers(prev => prev.filter(n => n.id !== id));
     };
 
+    // Partículas por lado
+    const [playerBursts, setPlayerBursts] = useState<number[]>([]);
+    const [enemyBursts, setEnemyBursts] = useState<number[]>([]);
+    const burstIdRef = useRef(0);
+
+    const triggerShake = (el: HTMLDivElement | null) => {
+      if (!el) return;
+      el.classList.remove('panel-shake');
+      // reflow
+      void el.offsetWidth;
+      el.classList.add('panel-shake');
+    };
+
+    // Detectar daño en hp/escudos y disparar efectos
+    const prevPlayerHp = useRef(player.hp);
+    const prevPlayerShield = useRef(player.shield);
+    const prevEnemyHp = useRef(enemy.hp);
+    const prevEnemyShield = useRef(enemy.shield);
+
+    useEffect(() => {
+      const hpDrop = prevPlayerHp.current - player.hp;
+      const shDrop = prevPlayerShield.current - player.shield;
+      if (hpDrop > 0) {
+        addFloatingNumber(hpDrop, 'damage', true);
+        triggerShake(playerPanelRef.current);
+        const id = burstIdRef.current++;
+        setPlayerBursts(prev => [...prev, id]);
+        setTimeout(() => setPlayerBursts(prev => prev.filter(x => x !== id)), 900);
+      }
+      if (shDrop > 0) {
+        addFloatingNumber(shDrop, 'shield', true);
+        triggerShake(playerPanelRef.current);
+        const id = burstIdRef.current++;
+        setPlayerBursts(prev => [...prev, id]);
+        setTimeout(() => setPlayerBursts(prev => prev.filter(x => x !== id)), 900);
+      }
+      prevPlayerHp.current = player.hp;
+      prevPlayerShield.current = player.shield;
+    }, [player.hp, player.shield]);
+
+    useEffect(() => {
+      const hpDrop = prevEnemyHp.current - enemy.hp;
+      const shDrop = prevEnemyShield.current - enemy.shield;
+      if (hpDrop > 0) {
+        addFloatingNumber(hpDrop, 'damage', false);
+        triggerShake(enemyPanelRef.current);
+        const id = burstIdRef.current++;
+        setEnemyBursts(prev => [...prev, id]);
+        setTimeout(() => setEnemyBursts(prev => prev.filter(x => x !== id)), 900);
+      }
+      if (shDrop > 0) {
+        addFloatingNumber(shDrop, 'shield', false);
+        triggerShake(enemyPanelRef.current);
+        const id = burstIdRef.current++;
+        setEnemyBursts(prev => [...prev, id]);
+        setTimeout(() => setEnemyBursts(prev => prev.filter(x => x !== id)), 900);
+      }
+      prevEnemyHp.current = enemy.hp;
+      prevEnemyShield.current = enemy.shield;
+    }, [enemy.hp, enemy.shield]);
+
     // Cleanup de timers al desmontar componente
     React.useEffect(() => {
         return () => {
-            if (playCardTimerRef.current) {
-                clearTimeout(playCardTimerRef.current);
-            }
-            if (effectTimerRef.current) {
-                clearTimeout(effectTimerRef.current);
-            }
+            if (playCardTimerRef.current) clearTimeout(playCardTimerRef.current);
+            if (effectTimerRef.current) clearTimeout(effectTimerRef.current);
         };
     }, []);
 
@@ -255,8 +326,12 @@ export const CombatInterface: React.FC<CombatInterfaceProps> = ({ combatState, o
     };
 
   return (
-    <div className="fixed inset-0 z-20 bg-black animate-fade-in flex items-center justify-center">
-      <div className="h-[85.5vh] w-[78.4vw] flex flex-col gap-3 p-3 bg-black rounded-lg border border-cyan-500/30">
+    <div className="fixed inset-0 z-20 bg-black/80 animate-fade-in flex items-center justify-center">
+      {/* Animated planet background */}
+      <div className="absolute inset-0 -z-10">
+        <PlanetBackground enemyName={enemy.name} />
+      </div>
+      <div className="h-[85.5vh] w-[78.4vw] flex flex-col gap-3 p-3 bg-black/60 rounded-lg border border-cyan-500/30 backdrop-blur-sm">
       
       {/* Números de daño flotantes */}
       {floatingNumbers.map(num => (
@@ -266,7 +341,11 @@ export const CombatInterface: React.FC<CombatInterfaceProps> = ({ combatState, o
       {/* Fila Superior: Paneles de Combatientes */}
       <div className="flex gap-3 items-stretch flex-nowrap flex-shrink-0" style={{ height: '380px' }}>
         {/* Izquierda: Jugador */}
-        <div className="w-52 shrink-0 flex flex-col items-center justify-start p-3 bg-gray-900/40 rounded-lg border border-cyan-500/20 overflow-hidden relative">
+        <div ref={playerPanelRef} className="w-52 shrink-0 flex flex-col items-center justify-start p-3 bg-gray-900/40 rounded-lg border border-cyan-500/20 overflow-hidden relative">
+          {/* Particle effects for player */}
+          {playerBursts.map(id => (
+            <ParticleBurst key={id} kind="damage" />
+          ))}
           <div className="w-full flex items-center justify-center overflow-hidden" style={{ height: 'calc(520px - 80px)' }}>
             <img src={player.image} alt={player.name} className="h-full w-full object-cover" />
           </div>
@@ -306,7 +385,11 @@ export const CombatInterface: React.FC<CombatInterfaceProps> = ({ combatState, o
         </div>
 
         {/* Derecha: Enemigo */}
-        <div className="w-52 shrink-0 flex flex-col items-center justify-start p-3 bg-gray-900/40 rounded-lg border border-red-500/20 overflow-visible relative">
+        <div ref={enemyPanelRef} className="w-52 shrink-0 flex flex-col items-center justify-start p-3 bg-gray-900/40 rounded-lg border border-red-500/20 overflow-visible relative">
+          {/* Particle effects for enemy */}
+          {enemyBursts.map(id => (
+            <ParticleBurst key={id} kind="damage" />
+          ))}
           {enemy.intent && (
             <div className="absolute -top-8 left-1/2 -translate-x-1/2 z-20">
               <IntentIcon intent={enemy.intent} />
