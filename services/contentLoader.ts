@@ -35,6 +35,29 @@ class ContentLoader {
   /**
    * Carga el contenido desde múltiples archivos JSON
    */
+  private async loadJsonRobust(url: string): Promise<any> {
+    const res = await fetch(url);
+    // Try standard JSON first
+    try {
+      return await res.clone().json();
+    } catch (_) {
+      // Fallback: detect BOM and decode via TextDecoder
+      const buf = await res.arrayBuffer();
+      const bytes = new Uint8Array(buf);
+      // UTF-8 BOM 0xEF 0xBB 0xBF, UTF-16LE BOM 0xFF 0xFE, UTF-16BE BOM 0xFE 0xFF
+      if (bytes.length >= 2 && bytes[0] === 0xFF && bytes[1] === 0xFE) {
+        const text = new TextDecoder('utf-16le').decode(bytes);
+        return JSON.parse(text.replace(/^\uFEFF/, ''));
+      }
+      if (bytes.length >= 2 && bytes[0] === 0xFE && bytes[1] === 0xFF) {
+        const text = new TextDecoder('utf-16be').decode(bytes);
+        return JSON.parse(text.replace(/^\uFEFF/, ''));
+      }
+      const text = new TextDecoder('utf-8').decode(bytes);
+      return JSON.parse(text.replace(/^\uFEFF/, ''));
+    }
+  }
+
   async loadContent(): Promise<ContentData> {
     if (this.loaded && this.content) {
       return this.content;
@@ -43,12 +66,12 @@ class ContentLoader {
     try {
       console.log('[ContentLoader] Cargando contenido desde archivos JSON...');
       
-      // Cargar todos los archivos en paralelo
+      // Cargar todos los archivos en paralelo (con decoder robusto)
       const [shipsData, cardsData, eventsData, shopsData] = await Promise.all([
-        fetch('/data/ships-converted.json').then(r => r.json()),
-        fetch('/data/cards-converted.json').then(r => r.json()),
-        fetch('/data/events-converted.json').then(r => r.json()),
-        fetch('/data/shops-converted.json').then(r => r.json())
+        this.loadJsonRobust('/data/ships-converted.json'),
+        this.loadJsonRobust('/data/cards-converted.json'),
+        this.loadJsonRobust('/data/events-converted.json'),
+        this.loadJsonRobust('/data/shops-converted.json')
       ]);
 
       // Fusionar todos los datos en un solo objeto ContentData
