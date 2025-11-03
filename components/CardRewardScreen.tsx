@@ -1,7 +1,7 @@
 // components/CardRewardScreen.tsx
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Card } from './Card';
-import { ALL_CARDS } from '../data/cards';
+import { getAllCards } from '../data';
 
 interface CardRewardScreenProps {
   cardIds: string[];
@@ -10,6 +10,14 @@ interface CardRewardScreenProps {
 }
 
 export const CardRewardScreen: React.FC<CardRewardScreenProps> = ({ cardIds, onCardSelect, title = "Elige tu Recompensa" }) => {
+  const [selected, setSelected] = React.useState(false);
+  const allCards = useMemo(() => getAllCards(), []);
+
+  const handleSelect = (cardId: string) => {
+    if (selected) return;
+    setSelected(true);
+    onCardSelect(cardId);
+  };
   return (
     <div className="fixed inset-0 z-30 bg-black/90 backdrop-blur-sm flex flex-col items-center justify-center p-4 animate-zoom-in-fade">
       <h2 className="text-4xl font-orbitron text-cyan-300 mb-4 drop-shadow-lg">{title}</h2>
@@ -17,7 +25,7 @@ export const CardRewardScreen: React.FC<CardRewardScreenProps> = ({ cardIds, onC
       
       <div className="flex justify-center items-center gap-6">
         {cardIds.map(cardId => {
-          const cardData = ALL_CARDS[cardId];
+          const cardData = allCards[cardId];
           if (!cardData) return null;
 
           // Crea una instancia temporal solo para visualización
@@ -28,8 +36,8 @@ export const CardRewardScreen: React.FC<CardRewardScreenProps> = ({ cardIds, onC
               key={cardId}
               cardInstance={cardInstance}
               onClick={() => {}} // No se usa el clic simple aquí
-              onDoubleClick={() => onCardSelect(cardId)}
-              disabled={false}
+              onDoubleClick={() => handleSelect(cardId)}
+              disabled={selected}
             />
           );
         })}

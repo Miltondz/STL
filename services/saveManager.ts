@@ -123,29 +123,41 @@ export const exportSave = (): void => {
  */
 export const importSave = (file: File): Promise<boolean> => {
   return new Promise((resolve) => {
-    try {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        try {
-          const content = e.target?.result as string;
-          const save: GameSave = JSON.parse(content);
-          
-          // Validar
-          if (save.version !== SAVE_VERSION) {
-            console.error('[SaveManager] Versión incompatible');
-            resolve(false);
-            return;
-          }
-
-          localStorage.setItem(SAVE_KEY, content);
-          console.log('[SaveManager] Partida importada exitosamente');
-          resolve(true);
-        } catch (error) {
-          console.error('[SaveManager] Error procesando archivo:', error);
+    const processContent = (content: string) => {
+      try {
+        const save: GameSave = JSON.parse(content);
+        if (save.version !== SAVE_VERSION) {
+          console.error('[SaveManager] Versión incompatible');
           resolve(false);
+          return;
         }
-      };
-      reader.readAsText(file);
+        localStorage.setItem(SAVE_KEY, content);
+        console.log('[SaveManager] Partida importada exitosamente');
+        resolve(true);
+      } catch (error) {
+        console.error('[SaveManager] Error procesando archivo:', error);
+        resolve(false);
+      }
+    };
+
+    try {
+      // Preferir API moderna si está disponible (Node/JS envs)
+      if (typeof (file as any).text === 'function') {
+        (file as any).text().then(processContent).catch(() => resolve(false));
+        return;
+      }
+
+      // Fallback DOM FileReader
+      if (typeof FileReader !== 'undefined') {
+        const reader = new FileReader();
+        reader.onload = (e) => processContent((e.target?.result as string) || '');
+        reader.onerror = () => resolve(false);
+        reader.readAsText(file);
+        return;
+      }
+
+      console.error('[SaveManager] No hay método disponible para leer archivo');
+      resolve(false);
     } catch (error) {
       console.error('[SaveManager] Error importando partida:', error);
       resolve(false);

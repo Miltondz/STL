@@ -1,10 +1,11 @@
 // hooks/useGameHandlers.ts
 import { useCallback } from 'react';
 import { useGame } from '../contexts/GameContext';
-import { ShipData, EventOption, CombatState, ShopCard, ShopServiceType, CardInstance } from '../types';
+import { ShipData, EventOption, CombatState, ShopCard, ShopServiceType, CardInstance, NodeType } from '../types';
 import { BASE_PLAYER_STATE, LEVEL_THRESHOLDS } from '../constants';
 import { generateMap } from '../services/mapGenerator';
 import { resolveNode, resetEventCardStates } from '../services/eventManager';
+import { resetStationImageAssignments } from '../components/GalacticMap';
 import * as combatEngine from '../services/combatEngine';
 import { generateShopInventory } from '../services/shopManager';
 import { ALL_CARDS } from '../data/cards';
@@ -18,6 +19,7 @@ export const useGameHandlers = () => {
   const {
     playerState,
     mapData,
+    currentNodeId,
     activeCombat,
     preCombatEnemyId,
     pendingLevelUps,
@@ -49,6 +51,7 @@ export const useGameHandlers = () => {
   const handleStartGame = useCallback(
     (ship: ShipData) => {
       resetEventCardStates();
+      resetStationImageAssignments(); // Reset station image assignments for new game
 
       const initialDeck = ship.initialDeck.map(createCardInstance);
       const newPlayerState = {
@@ -84,6 +87,34 @@ export const useGameHandlers = () => {
     [setPlayerState, setMapData, setCurrentNodeId, addLog, setGamePhase]
   );
 
+  const handleProbeNode = useCallback(() => {
+    if (!playerState || !mapData) return;
+
+    const currentNode = mapData.nodes.find(n => n.id === currentNodeId)!;
+    addLog(`Explorando el nodo ${currentNode.type}.`);
+
+    const resolution = resolveNode(currentNode.type, playerState);
+
+    if (resolution.card) {
+      setActiveEvent(resolution.card);
+      setGamePhase('EVENT');
+    } else if (resolution.combat) {
+      // Para nodos de batalla, ir directamente al combate sin modal PRE_COMBAT
+      const newCombat = combatEngine.createCombat(playerState, resolution.combat.enemyId, Date.now());
+      setActiveCombat(newCombat);
+      setGamePhase('COMBAT');
+      addLog(`¡Iniciando combate contra ${newCombat.combatants.find(c => !c.isPlayer)?.name}!`);
+    } else if (resolution.shop) {
+      setShopInventory(generateShopInventory());
+      setGamePhase('SHOP');
+    } else if (resolution.simulation) {
+      setSimulationResult(resolution.simulation);
+      setPlayerState(resolution.simulation.newState);
+      addLog(resolution.simulation.log);
+      setGamePhase('SIMULATION_RESULT');
+    }
+  }, [playerState, mapData, addLog, setActiveEvent, setGamePhase, setPreCombatEnemyId, setShopInventory, setSimulationResult, setPlayerState]);
+
   const handleNodeSelect = useCallback(
     (nodeId: number) => {
       if (!playerState || !mapData) return;
@@ -103,24 +134,22 @@ export const useGameHandlers = () => {
         const selectedNode = mapData.nodes.find((n) => n.id === nodeId)!;
         addLog(`Viajando al nodo ${selectedNode.type}. Combustible restante: ${newPlayerState.fuel}`);
 
-        const resolution = resolveNode(selectedNode.type, newPlayerState);
-
-        if (resolution.card) {
-          setActiveEvent(resolution.card);
-          setGamePhase('EVENT');
-        } else if (resolution.combat) {
-          setPreCombatEnemyId(resolution.combat.enemyId);
-          setGamePhase('PRE_COMBAT');
-        } else if (resolution.shop) {
-          setShopInventory(generateShopInventory());
-          setGamePhase('SHOP');
-        } else if (resolution.simulation) {
-          setSimulationResult(resolution.simulation);
-          setPlayerState(resolution.simulation.newState);
-          addLog(resolution.simulation.log);
-          setGamePhase('SIMULATION_RESULT');
-        }
         setPlayerState(newPlayerState);
+
+        const nodeHasAction = [
+            NodeType.BATTLE, 
+            NodeType.MINI_BOSS, 
+            NodeType.ENCOUNTER, 
+            NodeType.HAZARD,
+            NodeType.SHOP, 
+            NodeType.SPECIAL_EVENT,
+            NodeType.END
+        ].includes(selectedNode.type);
+
+        if (nodeHasAction) {
+            setGamePhase('NODE_ACTION_PENDING');
+        }
+
       }, 500);
     },
     [
@@ -329,11 +358,23 @@ export const useGameHandlers = () => {
     }
   }, [pendingLevelUps, setSimulationResult, setGamePhase]);
 
+  const handleExitNode = useCallback(() => {
+    setGamePhase('IN_GAME');
+  }, [setGamePhase]);
+
+  const handleEscapeCombat = useCallback(() => {
+    // Solo para pruebas - escapar del combate sin consecuencias
+    setActiveCombat(null);
+    setGamePhase('IN_GAME');
+    addLog('Has escapado del combate (modo de prueba).');
+  }, [setActiveCombat, setGamePhase, addLog]);
+
   return {
     handleShowHangar,
     handleReturnToStartScreen,
     handleStartGame,
     handleNodeSelect,
+    handleProbeNode,
     handleGainXp,
     handleEventOptionSelect,
     handleEventComplete,
@@ -346,5 +387,7 @@ export const useGameHandlers = () => {
     handleBuyCard,
     handlePerformService,
     handleSimulationComplete,
+    handleExitNode,
+    handleEscapeCombat,
   };
 };

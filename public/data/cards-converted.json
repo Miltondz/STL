@@ -1,4 +1,4 @@
-﻿{
+{
   "version": "1.0.0",
   "metadata": {
     "title": "Navegador Gal├íctico - Cards Database",
@@ -93,7 +93,7 @@
       "rarity": "Common",
       "faction": "Neutral",
       "description": "Gana 1 Cr├®dito.",
-      "image": "https://i.ibb.co/KxV15HhD/carta-00-placeholder.jpg",
+      "image": "https://i.ibb.co/6RqKYvT8/tripulacion-00-placeholder.jpg",
       "availability": "always",
       "effects": [
         {

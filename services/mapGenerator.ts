@@ -14,12 +14,12 @@ const VERTICAL_BIAS = 0.7; // 70% de probabilidad de avanzar recto hacia arriba
 
 // --- Porcentajes de Tipos de Nodo (Estilo Slay the Spire) ---
 const NODE_TYPE_PERCENTAGES: Record<NodeType, number> = {
-    [NodeType.BATTLE]: 0.45,
-    [NodeType.ENCOUNTER]: 0.22,
-    [NodeType.SHOP]: 0.05,
+    [NodeType.BATTLE]: 0.47,
+    [NodeType.ENCOUNTER]: 0.25,
+    [NodeType.SHOP]: 0.02, // Reducido porque ahora se colocan estratégicamente
     [NodeType.HAZARD]: 0.08, // Representa a los "Elites"
     [NodeType.MINI_BOSS]: 0, // Se colocan manualmente
-    [NodeType.SPECIAL_EVENT]: 0.12, // Representa a los "Rest sites" o eventos especiales
+    [NodeType.SPECIAL_EVENT]: 0.15, // Aumentado para compensar
     [NodeType.START]: 0,
     [NodeType.END]: 0,
 };
@@ -202,6 +202,26 @@ export const generateMap = (): MapData => {
     preEndNodes.forEach(node => {
         node.type = Math.random() < 0.6 ? NodeType.SHOP : NodeType.SPECIAL_EVENT;
     });
+
+    // Colocación estratégica de tiendas en cada ruta (25%, 60%, 90%)
+    mainPaths.forEach(path => {
+        if (path.length > 6) { // Solo en rutas suficientemente largas
+            const shop25Index = Math.floor(path.length * 0.25);
+            const shop60Index = Math.floor(path.length * 0.60);
+            const shop90Index = Math.floor(path.length * 0.90);
+            
+            // Colocar tiendas en los porcentajes especificados
+            if (path[shop25Index] && path[shop25Index].layer > 1) {
+                path[shop25Index].type = NodeType.SHOP;
+            }
+            if (path[shop60Index] && path[shop60Index].layer > 1 && shop60Index !== shop25Index) {
+                path[shop60Index].type = NodeType.SHOP;
+            }
+            if (path[shop90Index] && path[shop90Index].layer > 1 && shop90Index !== shop25Index && shop90Index !== shop60Index) {
+                path[shop90Index].type = NodeType.SHOP;
+            }
+        }
+    });
     
     // Colocación incremental de Mini-Jefes en puntos clave
     mainPaths.forEach(path => {
@@ -263,6 +283,37 @@ export const generateMap = (): MapData => {
     const combatTypes = new Set([NodeType.BATTLE, NodeType.HAZARD]);
     const beneficialTypes = [NodeType.ENCOUNTER, NodeType.SHOP, NodeType.SPECIAL_EVENT];
     let beneficialTypeIndex = 0;
+
+    // Regla 2: Distancia mínima de 3 nodos entre tiendas
+    const checkShopDistance = (nodeId: number, distance: number): boolean => {
+        if (distance >= 3) return true; // Suficiente distancia
+        
+        const parents = predecessors.get(nodeId) || [];
+        for (const parentId of parents) {
+            const parentNode = nodeMap.get(parentId);
+            if (parentNode) {
+                if (parentNode.type === NodeType.SHOP) {
+                    return false; // Encontró una tienda muy cerca
+                }
+                // Continuar buscando hacia atrás
+                if (!checkShopDistance(parentId, distance + 1)) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    };
+
+    sortedNodes.forEach(currentNode => {
+        if (currentNode.type !== NodeType.SHOP) return;
+
+        // Verificar si hay suficiente distancia desde otras tiendas
+        if (!checkShopDistance(currentNode.id, 0)) {
+            // Cambiar la tienda actual a otro tipo beneficioso
+            const alternativeTypes = [NodeType.ENCOUNTER, NodeType.SPECIAL_EVENT];
+            currentNode.type = alternativeTypes[Math.floor(Math.random() * alternativeTypes.length)];
+        }
+    });
 
     sortedNodes.forEach(currentNode => {
         if (!combatTypes.has(currentNode.type)) return;

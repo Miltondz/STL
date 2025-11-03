@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { Node as NodeTypeData, NodeType } from '../types';
+import { Node as NodeTypeData, NodeType, PlayerState } from '../types';
 import { NodeIcon } from './Icons';
 import { NODE_COLORS } from '../constants';
 
@@ -7,110 +7,327 @@ interface GalacticMapProps {
   nodes: NodeTypeData[];
   currentNodeId: number;
   onNodeSelect: (nodeId: number) => void;
+  playerState?: PlayerState;
 }
 
-// Mapa de imágenes de planetas por tipo de nodo
-const getPlanetImage = (type: NodeType): string => {
-  const planetImages: Record<NodeType, string> = {
-    [NodeType.START]: 'https://i.ibb.co/GnGZyMy/planet-green.png',
-    [NodeType.BATTLE]: 'https://i.ibb.co/vPGZfqX/planet-red.png',
-    [NodeType.ENCOUNTER]: 'https://i.ibb.co/YyLpHW4/planet-yellow.png',
-    [NodeType.SHOP]: 'https://i.ibb.co/qNXc7Yy/planet-blue.png',
-    [NodeType.HAZARD]: 'https://i.ibb.co/xfRLB5F/planet-orange.png',
-    [NodeType.MINI_BOSS]: 'https://i.ibb.co/JsXPnKX/planet-purple.png',
-    [NodeType.SPECIAL_EVENT]: 'https://i.ibb.co/7GqZCyy/planet-cyan.png',
-    [NodeType.END]: 'https://i.ibb.co/hBn3Lbv/planet-white.png',
-  };
-  return planetImages[type] || 'https://i.ibb.co/YyLpHW4/planet-yellow.png';
+import { getPlanetImageForNode } from '../services/imageRegistry';
+
+// Generate a deterministic seed for planet based on node ID
+const getNodePlanetSeed = (nodeId: number): number => {
+  const seed = ((nodeId * 7919) ^ 0x12345678) & 0x7fffffff;
+  return Math.abs(seed);
 };
 
-const MapNode: React.FC<{ node: NodeTypeData; isCurrent: boolean; isAvailable: boolean; onSelect: () => void }> = ({ node, isCurrent, isAvailable, onSelect }) => {
-  const scale = isCurrent ? 'scale(1.2)' : 'scale(1.0)';
-  const opacity = node.visited && !isCurrent ? 0.6 : 1;
-  const cursor = isAvailable ? 'cursor-pointer' : 'cursor-default';
-  
-  const nodeClasses = [
-    'transition-transform duration-300 ease-in-out',
-    cursor,
-    isAvailable && !isCurrent ? 'node-available' : ''
-  ].join(' ');
-  
-  const groupStyle: React.CSSProperties = {
-    opacity,
-    filter: isCurrent ? 'drop-shadow(0 0 4px #67e8f9) drop-shadow(0 0 8px #67e8f9)' : isAvailable ? 'drop-shadow(0 0 2px #67e8f9)' : 'none'
-  };
+const pseudoRandom = (seed: number) => {
+  let x = Math.sin(seed) * 10000;
+  return x - Math.floor(x);
+};
 
-  const planetImage = getPlanetImage(node.type);
+// Obtener la imagen del token según el tipo de nave del jugador
+const getPlayerTokenImage = (playerState?: PlayerState): string => {
+  if (!playerState) return 'https://i.ibb.co/Vcmby2F6/mini-ship01.png'; // Default: Mercader Errante
+  
+  const shipName = playerState.name.toLowerCase();
+  
+  if (shipName.includes('puño') || shipName.includes('hierro') || shipName.includes('iron') || shipName.includes('fist')) {
+    return 'https://i.ibb.co/C5X8Djst/mini-ship00.png'; // Puño de Hierro
+  } else if (shipName.includes('espectro') || shipName.includes('silencioso') || shipName.includes('ghost') || shipName.includes('silent')) {
+    return 'https://i.ibb.co/qXZ0bRy/mini-ship02.png'; // Espectro Silencioso
+  } else {
+    return 'https://i.ibb.co/Vcmby2F6/mini-ship01.png'; // Mercader Errante (default)
+  }
+};
+
+// Array de imágenes de estaciones espaciales (solo las 5 correctas)
+const SHOP_STATION_IMAGES = [
+  'https://i.ibb.co/whY2rS9B/mini-estacion01.png',
+  'https://i.ibb.co/hJfy0KsQ/mini-estacion02.png',
+  'https://i.ibb.co/7N2gwfgf/mini-estacion03.png',
+  'https://i.ibb.co/1GfZvg9m/mini-estacion04.png',
+  'https://i.ibb.co/n8Z6MrWR/mini-estacion05.png'
+];
+
+// Cache para evitar repeticiones en las primeras asignaciones
+let usedStationImages = new Set<string>();
+let stationImageAssignments = new Map<number, string>();
+
+// Función para resetear las asignaciones de estaciones (útil para nuevos mapas)
+export const resetStationImageAssignments = (): void => {
+  usedStationImages.clear();
+  stationImageAssignments.clear();
+};
+
+// Obtener imagen para nodos de tienda con variedad y sin repeticiones iniciales
+const getShopTokenImage = (nodeId: number): string => {
+  // Si ya tenemos una imagen asignada para este nodo, la devolvemos
+  if (stationImageAssignments.has(nodeId)) {
+    return stationImageAssignments.get(nodeId)!;
+  }
+
+  // Obtener imágenes disponibles (no usadas aún)
+  const availableImages = SHOP_STATION_IMAGES.filter(img => !usedStationImages.has(img));
+  
+  let selectedImage: string;
+  
+  if (availableImages.length > 0) {
+    // Seleccionar de las no usadas
+    selectedImage = availableImages[Math.floor(Math.random() * availableImages.length)];
+    usedStationImages.add(selectedImage);
+  } else {
+    // Si ya usamos todas, resetear y seleccionar cualquiera
+    if (usedStationImages.size >= SHOP_STATION_IMAGES.length) {
+      usedStationImages.clear();
+    }
+    selectedImage = SHOP_STATION_IMAGES[Math.floor(Math.random() * SHOP_STATION_IMAGES.length)];
+    usedStationImages.add(selectedImage);
+  }
+  
+  // Guardar la asignación para este nodo
+  stationImageAssignments.set(nodeId, selectedImage);
+  return selectedImage;
+};
+
+// SVG circle (clickable area) for node; planet image rendered inside
+const MapNode: React.FC<{ node: NodeTypeData; allNodes: NodeTypeData[]; isCurrent: boolean; isAvailable: boolean; onSelect: () => void }> = ({ node, allNodes, isCurrent, isAvailable, onSelect }) => {
+  const scale = isCurrent ? 1.3 : 1.0;
+  const opacity = node.visited && !isCurrent ? 0.7 : 1;
+  const cursor = isAvailable ? 'pointer' : 'default';
+
+  // Deterministic variations based on node ID
+  const randomVal = pseudoRandom(node.id);
+  const imageScale = 0.9 + (randomVal * 0.3); // Varies from 0.9 to 1.2
+  const imageRotation = randomVal * 360;
+  const animDuration = 8 + randomVal * 4; // 8s to 12s
+  const animDelay = randomVal * -5; // -5s to 0s
+
+  const imageUrl = getPlanetImageForNode(node.id, allNodes);
 
   return (
     <g
-      transform={`translate(${node.x}, ${node.y}) ${scale}`}
-      className={nodeClasses}
-      style={{ ...groupStyle, cursor: isAvailable ? 'pointer' : 'default' }}
+      transform={`translate(${node.x}, ${node.y}) scale(${scale})`}
+      style={{ cursor, opacity, transition: 'transform 0.2s, opacity 0.3s' }}
+      onClick={isAvailable ? onSelect : undefined}
     >
-      {/* Área de clic invisible (más grande que el planeta) */}
-      <circle 
-        r="3" 
-        fill="transparent" 
-        onClick={isAvailable ? onSelect : undefined}
-        style={{ cursor: isAvailable ? 'pointer' : 'default' }}
-      />
-      
-      {/* Anillo de selección para nodo actual */}
+      <defs>
+        <filter id={`atmosphere-${node.id}`} x="-50%" y="-50%" width="200%" height="200%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.1" numOctaves="2" result="turbulence">
+            <animate 
+              attributeName="baseFrequency"
+              dur={`${10 + randomVal * 10}s`}
+              values="0.1;0.12;0.1"
+              repeatCount="indefinite" 
+              begin={`${animDelay}s`}
+            />
+          </feTurbulence>
+          <feDisplacementMap in="SourceGraphic" in2="turbulence" scale="1.5" />
+        </filter>
+      </defs>
+
+      <circle r="4" fill="rgba(0,0,0,0)" />
+
+      {/* Planet Image with variations OR Shop Station */}
+      <g>
+        {node.type === NodeType.SHOP ? (
+          /* Estación Espacial para nodos de tienda */
+          <g>
+            {/* Imagen de la estación 2.5x más grande y 100% opaca */}
+            <image 
+              href={getShopTokenImage(node.id)}
+              x="-4.375" y="-4.375"
+              height="8.75" width="8.75"
+              transform={`scale(${imageScale})`}
+              style={{ 
+                  pointerEvents: 'none',
+                  filter: `drop-shadow(0 0 4px #67e8f9) drop-shadow(0 0 8px #0891b2)`,
+                  animation: `glow ${animDuration * 2}s ease-in-out infinite`,
+                  animationDelay: `${animDelay + 2}s`,
+                  opacity: 1
+              }}
+            />
+          </g>
+        ) : (
+          /* Planet Image para otros nodos */
+          <image 
+            href={imageUrl}
+            x="-1.75" y="-1.75"
+            height="3.5" width="3.5"
+            transform={`scale(${imageScale}) rotate(${imageRotation} 0 0)`}
+            style={{ 
+                pointerEvents: 'none',
+                filter: `url(#atmosphere-${node.id})`,
+                animation: `glow ${animDuration * 2}s ease-in-out infinite`,
+                animationDelay: `${animDelay + 2}s`
+            }}
+          >
+            <animateTransform
+              attributeName="transform"
+              type="translate"
+              values="0 0; 0.4 -0.5; 0 -0.8; -0.4 -0.5; 0 0"
+              dur={`${animDuration}s`}
+              begin={`${animDelay}s`}
+              repeatCount="indefinite"
+              additive="sum"
+            />
+          </image>
+        )}
+
+        {/* Cloud/Atmosphere Overlay OR Station Energy Field */}
+        {node.type === NodeType.SHOP ? (
+          /* Campo de energía para estaciones */
+          <circle cx="0" cy="0" r="2.2" fill="none" stroke="rgba(103,232,249,0.3)" strokeWidth="0.15">
+            <animate attributeName="r" values="2.2;2.5;2.2" dur={`${animDuration * 1.2}s`} repeatCount="indefinite" begin={`${animDelay}s`} />
+            <animate attributeName="stroke-width" values="0.15;0.25;0.15" dur={`${animDuration * 1.2}s`} repeatCount="indefinite" begin={`${animDelay}s`} />
+            <animate attributeName="opacity" values="0.3;0.6;0.3" dur={`${animDuration}s`} repeatCount="indefinite" begin={`${animDelay}s`} />
+          </circle>
+        ) : (
+          /* Atmósfera para planetas */
+          <circle cx="0" cy="0" r="1.75" fill="none" stroke="rgba(200,220,255,0.15)" strokeWidth="0.1">
+            <animate attributeName="r" values="1.75;1.85;1.75" dur={`${animDuration * 1.5}s`} repeatCount="indefinite" begin={`${animDelay}s`} />
+            <animate attributeName="stroke-width" values="0.1;0.2;0.1" dur={`${animDuration * 1.5}s`} repeatCount="indefinite" begin={`${animDelay}s`} />
+          </circle>
+        )}
+
+        {/* Specular Highlight */}
+        <ellipse cx="-0.8" cy="-0.8" rx="0.4" ry="0.5" fill="rgba(255,255,255,0.3)" opacity="0.6">
+          <animate attributeName="cx" values="-0.8;0.8;-0.8" dur={`${animDuration * 2}s`} repeatCount="indefinite" begin={`${animDelay}s`} />
+          <animate attributeName="cy" values="-0.8;0.8;-0.8" dur={`${animDuration * 2}s`} repeatCount="indefinite" begin={`${animDelay}s`} />
+        </ellipse>
+
+        {/* Optional Ring Effect */}
+        {randomVal > 0.6 && (
+          <circle cx="0" cy="0" r="2.2" fill="none" stroke="rgba(150,180,220,0.2)" strokeWidth="0.15">
+            <animateTransform
+              attributeName="transform"
+              type="rotate"
+              from="0 0 0"
+              to="360 0 0"
+              dur={`${animDuration * 3}s`}
+              repeatCount="indefinite"
+              begin={`${animDelay}s`}
+            />
+          </circle>
+        )}
+      </g>
+
+      {/* Selection Ring for current node */}
       {isCurrent && (
         <circle 
           r="4" 
           fill="none" 
           stroke="#67e8f9" 
-          strokeWidth="0.3" 
+          strokeWidth="0.3"
           className="animate-pulse"
-          style={{ pointerEvents: 'none' }}
+          style={{ pointerEvents: 'none', filter: 'drop-shadow(0 0 4px #67e8f9)' }}
         />
       )}
-      
-      {/* Imagen del planeta */}
-      <image 
-        href={planetImage}
-        x="-2.5" 
-        y="-2.5" 
-        width="5" 
-        height="5"
-        style={{ pointerEvents: 'none' }}
-      />
-      
-      {/* Indicador de visitado */}
+
+      {/* Availability Indicator */}
+      {isAvailable && !isCurrent && (
+        <circle 
+          r="3.5" 
+          fill="none" 
+          stroke="#67e8f9"
+          strokeWidth="0.2"
+          strokeDasharray="0.5 0.5"
+          style={{ pointerEvents: 'none', opacity: 0.7 }}
+        />
+      )}
+
+      {/* Visited Indicator */}
       {node.visited && !isCurrent && (
-        <circle r="0.5" cx="1.5" cy="-1.5" fill="#34d399" stroke="#1f2937" strokeWidth="0.2" style={{ pointerEvents: 'none' }} />
+        <circle r="0.5" cx="2.5" cy="-2.5" fill="#34d399" stroke="#1f2937" strokeWidth="0.2" style={{ pointerEvents: 'none' }} />
       )}
     </g>
   );
 };
 
 // Token de la nave del jugador con animación de movimiento
-const PlayerShipToken: React.FC<{ x: number; y: number; isMoving?: boolean }> = ({ x, y, isMoving }) => {
+const PlayerShipToken: React.FC<{ 
+  x: number; 
+  y: number; 
+  isMoving?: boolean; 
+  playerState?: PlayerState;
+  currentNode?: NodeTypeData;
+}> = ({ x, y, isMoving, playerState, currentNode }) => {
+  const [imageError, setImageError] = useState(false);
+  
+  // Calcular posición orbital (desplazado del centro del nodo)
+  const orbitRadius = 3.5; // Distancia del centro del nodo
+  const orbitAngle = Date.now() * 0.0005; // Rotación lenta
+  const orbitX = x + Math.cos(orbitAngle) * orbitRadius;
+  const orbitY = y + Math.sin(orbitAngle) * orbitRadius;
+  
   const tokenStyle: React.CSSProperties = isMoving ? {
     animation: 'none'
   } : {};
 
+  const handleImageError = () => {
+    setImageError(true);
+  };
+
+  // Determinar qué imagen usar
+  let tokenImage: string;
+  if (currentNode?.type === NodeType.SHOP) {
+    tokenImage = getShopTokenImage(currentNode.id);
+  } else {
+    tokenImage = getPlayerTokenImage(playerState);
+  }
+
   return (
-    <g transform={`translate(${x}, ${y})`} style={tokenStyle}>
-      {/* Nave espacial simple */}
-      <g transform="scale(0.8)">
-        <path 
-          d="M 0,-2 L -1,1 L -0.5,0.8 L 0,2 L 0.5,0.8 L 1,1 Z" 
-          fill="#67e8f9" 
-          stroke="#0891b2" 
-          strokeWidth="0.2"
-          className={isMoving ? "" : "animate-pulse"}
-        />
-        {/* Motor brillante */}
-        <circle cx="0" cy="1.5" r="0.4" fill="#fbbf24" className={isMoving ? "animate-pulse" : "animate-pulse"} />
-      </g>
+    <g transform={`translate(${orbitX}, ${orbitY})`} style={tokenStyle}>
+      {!imageError ? (
+        /* Token con imagen específica */
+        <g transform="scale(5.0)"> {/* Mucho más grande para ser visible */}
+          {/* Imagen del token con borde luminoso */}
+          <image
+            href={tokenImage}
+            x="-0.6"
+            y="-0.6"
+            width="1.2"
+            height="1.2"
+            onError={handleImageError}
+            className={isMoving ? "" : "animate-pulse"}
+            style={{
+              filter: 'drop-shadow(0 0 0.3px #67e8f9) drop-shadow(0 0 0.6px #0891b2) drop-shadow(0 0 1px #67e8f9)',
+              opacity: isMoving ? 0.9 : 1
+            }}
+          />
+          
+          {/* Estela de movimiento cuando se está moviendo */}
+          {isMoving && (
+            <g opacity="0.7">
+              <circle cx="-0.2" cy="0.2" r="0.1" fill="#67e8f9" opacity="0.8">
+                <animate attributeName="opacity" values="0.8;0.2;0.8" dur="0.5s" repeatCount="indefinite" />
+              </circle>
+              <circle cx="-0.4" cy="0.4" r="0.08" fill="#0891b2" opacity="0.6">
+                <animate attributeName="opacity" values="0.6;0.1;0.6" dur="0.7s" repeatCount="indefinite" />
+              </circle>
+              <circle cx="-0.6" cy="0.6" r="0.06" fill="#67e8f9" opacity="0.4">
+                <animate attributeName="opacity" values="0.4;0.05;0.4" dur="0.9s" repeatCount="indefinite" />
+              </circle>
+            </g>
+          )}
+        </g>
+      ) : (
+        /* Fallback: Nave espacial simple (diseño original) */
+        <g transform="scale(2.0)">
+          <path 
+            d="M 0,-2 L -1,1 L -0.5,0.8 L 0,2 L 0.5,0.8 L 1,1 Z" 
+            fill="#67e8f9" 
+            stroke="#0891b2" 
+            strokeWidth="0.2"
+            className={isMoving ? "" : "animate-pulse"}
+          />
+          {/* Motor brillante */}
+          <circle cx="0" cy="1.5" r="0.4" fill="#fbbf24" className={isMoving ? "animate-pulse" : "animate-pulse"} />
+        </g>
+      )}
     </g>
   );
 };
 
-export const GalacticMap: React.FC<GalacticMapProps> = ({ nodes, currentNodeId, onNodeSelect }) => {
+
+export const GalacticMap: React.FC<GalacticMapProps> = ({ nodes, currentNodeId, onNodeSelect, playerState }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const [animatingTo, setAnimatingTo] = useState<{ x: number; y: number } | null>(null);
   const [displayX, setDisplayX] = useState(0);
@@ -225,10 +442,28 @@ export const GalacticMap: React.FC<GalacticMapProps> = ({ nodes, currentNodeId, 
   const viewBoxWidth = (maxX - minX) + (PADDING * 2);
   const viewBoxHeight = (maxY - minY) + (PADDING * 2);
 
+  // Get container dimensions for coordinate transformation
+  const [containerSize, setContainerSize] = React.useState({ w: 0, h: 0 });
+
+  useEffect(() => {
+    if (mapContainerRef.current) {
+      const updateSize = () => {
+        setContainerSize({
+          w: mapContainerRef.current!.clientWidth,
+          h: mapContainerRef.current!.clientHeight
+        });
+      };
+      updateSize();
+      const ro = new ResizeObserver(updateSize);
+      ro.observe(mapContainerRef.current);
+      return () => ro.disconnect();
+    }
+  }, []);
+
   return (
     <div 
       ref={mapContainerRef} 
-      className="w-full h-full rounded-lg overflow-y-auto"
+      className="w-full h-full rounded-lg overflow-y-auto relative"
       style={{
         backgroundImage: 'url(https://i.ibb.co/d44ywdHY/Chat-GPT-Image-29-oct-2025-12-33-14.png)',
         backgroundSize: 'cover',
@@ -265,6 +500,7 @@ export const GalacticMap: React.FC<GalacticMapProps> = ({ nodes, currentNodeId, 
           <MapNode
             key={node.id}
             node={node}
+            allNodes={nodes}
             isCurrent={node.id === currentNodeId}
             isAvailable={availableNodeIds.has(node.id)}
             onSelect={() => handleNodeSelect(node.id)}
@@ -272,7 +508,13 @@ export const GalacticMap: React.FC<GalacticMapProps> = ({ nodes, currentNodeId, 
         ))}
         
         {/* Token de la nave del jugador */}
-        <PlayerShipToken x={displayX} y={displayY} isMoving={animatingTo !== null} />
+        <PlayerShipToken 
+          x={displayX} 
+          y={displayY} 
+          isMoving={animatingTo !== null} 
+          playerState={playerState}
+          currentNode={nodes.find(n => n.id === currentNodeId)}
+        />
       </svg>
     </div>
   );

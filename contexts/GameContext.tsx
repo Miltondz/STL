@@ -18,6 +18,7 @@ type GamePhase =
   | 'START_SCREEN'
   | 'HANGAR'
   | 'IN_GAME'
+  | 'NODE_ACTION_PENDING'
   | 'PRE_COMBAT'
   | 'COMBAT'
   | 'EVENT'

@@ -1,3 +1,5 @@
+import { preloadPlanetImages } from './services/imageRegistry';
+
 import React, { useEffect } from 'react';
 
 // Context & Hooks
@@ -18,6 +20,8 @@ import { LevelUpModal } from './components/LevelUpModal';
 import { HangarScreen } from './components/HangarScreen';
 import { StartScreen } from './components/StartScreen';
 import { NodeViewer } from './components/NodeViewer';
+import { NodeAnalysisScreen } from './components/NodeAnalysisScreen';
+import { PauseMenu } from './components/PauseMenu';
 
 // Services
 import contentLoader from './services/contentLoader';
@@ -50,6 +54,7 @@ function App() {
     handleReturnToStartScreen,
     handleStartGame,
     handleNodeSelect,
+    handleProbeNode,
     handleEventOptionSelect,
     handleEventComplete,
     handleStartCombat,
@@ -61,7 +66,13 @@ function App() {
     handleBuyCard,
     handlePerformService,
     handleSimulationComplete,
+    handleExitNode,
+    handleEscapeCombat,
   } = useGameHandlers();
+  
+  const { setGamePhase } = useGame();
+  
+  const [isPauseOpen, setIsPauseOpen] = React.useState(false);
   
   // Cargar contenido al inicio
   useEffect(() => {
@@ -71,6 +82,7 @@ function App() {
         await contentLoader.loadContent();
         console.log('[App] Contenido cargado exitosamente');
         setContentLoaded(true);
+        preloadPlanetImages(); // Preload planet images after content is loaded
       } catch (error) {
         console.warn('[App] Error cargando contenido, usando datos hardcodeados:', error);
         // Continuar con datos hardcodeados
@@ -141,7 +153,10 @@ function App() {
 
   const currentNode = mapData.nodes.find(n => n.id === currentNodeId)!;
   const availableNodeIds = new Set(currentNode?.connections || []);
-  const canTravel = (nodeId: number) => availableNodeIds.has(nodeId) && playerState.fuel > 0;
+  const canTravel = (nodeId: number) => 
+    gamePhase === 'IN_GAME' && 
+    availableNodeIds.has(nodeId) && 
+    playerState.fuel > 0;
 
   return (
     <div className="w-full h-full grid grid-cols-1 md:grid-cols-4 grid-rows-[auto_1fr] md:grid-rows-1 gap-4 p-4 bg-transparent overflow-hidden">
@@ -149,9 +164,11 @@ function App() {
         <GalacticMap 
             nodes={mapData.nodes} 
             currentNodeId={currentNodeId} 
-            onNodeSelect={(nodeId) => canTravel(nodeId) && handleNodeSelect(nodeId)} 
+            onNodeSelect={(nodeId) => canTravel(nodeId) && handleNodeSelect(nodeId)}
+            playerState={playerState}
         />
-        {isTraveling && (
+        {/* Efecto de viaje desactivado para mejor visibilidad */}
+        {false && isTraveling && (
             <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-2xl font-orbitron">
                 VIAJANDO...
             </div>
@@ -159,17 +176,33 @@ function App() {
       </main>
 
       <aside className="md:col-span-1 h-full min-h-0 flex flex-col gap-4">
-        <PlayerStatus state={playerState} />
+        <div className="flex items-center justify-between">
+          <PlayerStatus state={playerState} />
+          <button
+            onClick={() => setIsPauseOpen(true)}
+            className="ml-2 px-3 py-1 bg-gray-800 border border-cyan-500/30 rounded text-cyan-300 hover:bg-gray-700"
+            title="Pausa"
+          >
+            ⏸️
+          </button>
+        </div>
         <div className="flex-1 min-h-0 flex flex-col gap-4">
           <div className="flex-1 min-h-0">
             <TravelLog logs={logs} />
           </div>
           <div className="flex-1 min-h-0">
-            <NodeViewer node={currentNode} />
+            <NodeViewer node={currentNode} onEventTrigger={handleProbeNode} />
           </div>
         </div>
       </aside>
 
+      {gamePhase === 'NODE_ACTION_PENDING' && (
+        <NodeAnalysisScreen 
+          node={currentNode} 
+          onEventTrigger={handleProbeNode} 
+          onExitNode={handleExitNode}
+        />
+      )}
       {gamePhase === 'EVENT' && activeEvent && (
         <div className="fixed inset-0 z-20 bg-black/70 flex items-center justify-center p-4">
           <EventCard card={activeEvent} playerState={playerState} onOptionSelect={handleEventOptionSelect} eventResult={eventResult} onComplete={handleEventComplete} />
@@ -179,7 +212,7 @@ function App() {
         <PreCombatModal enemyId={preCombatEnemyId} onConfirm={handleStartCombat} />
       )}
       {gamePhase === 'COMBAT' && activeCombat && (
-        <CombatInterface combatState={activeCombat} onPlayCard={handlePlayCard} onEndTurn={handleEndTurn} onCombatComplete={handleCombatComplete} />
+        <CombatInterface combatState={activeCombat} onPlayCard={handlePlayCard} onEndTurn={handleEndTurn} onCombatComplete={handleCombatComplete} onEscape={handleEscapeCombat} currentNodeId={currentNodeId} />
       )}
       {gamePhase === 'CARD_REWARD' && cardRewards.length > 0 && (
           <CardRewardScreen cardIds={cardRewards} onCardSelect={handleCardRewardSelect} title={rewardTitle} />
@@ -195,11 +228,13 @@ function App() {
        {gamePhase === 'LEVEL_UP' && pendingLevelUps > 0 && (
           <LevelUpModal newLevel={playerState.level - pendingLevelUps + 1} onSelectReward={handleLevelUpReward} />
       )}
-       {gamePhase === 'GAME_OVER' && (
+      {gamePhase === 'GAME_OVER' && (
           <GenericModal title="Fin de la Partida" onClose={() => setGamePhase('START_SCREEN')}>
             <p className="text-lg text-red-400">Tu nave ha sido destruida o te has quedado sin opciones. Tu viaje termina aquí.</p>
           </GenericModal>
        )}
+
+      {isPauseOpen && <PauseMenu onClose={() => setIsPauseOpen(false)} />}
     </div>
   );
 }

@@ -49,7 +49,7 @@ export const ALL_CARDS: Record<string, CardData> = {
         faction: 'Neutral',
         description: 'Gana 1 Crédito.',
         effectBase: 'EFFECT_GAIN_CREDITO_1',
-        image: 'https://i.ibb.co/KxV15HhD/carta-00-placeholder.jpg',
+        image: 'https://i.ibb.co/6RqKYvT8/tripulacion-00-placeholder.jpg',
     },
     
     // --- CARTAS DE "BASURA" INICIALES ---

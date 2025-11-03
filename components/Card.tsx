@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { CardInstance } from '../types';
 import { RARITY_BORDER_COLORS, RARITY_GLOW_COLORS } from '../constants';
-import { ALL_CARDS } from '../data/cards';
+import { getAllCards } from '../data';
 
 interface CardProps {
   cardInstance: CardInstance;
@@ -15,7 +15,8 @@ interface CardProps {
 // Componente que renderiza una única carta en la mano del jugador.
 export const Card: React.FC<CardProps> = ({ cardInstance, onClick, onDoubleClick, disabled, size = 'normal' }) => {
   const [showTooltip, setShowTooltip] = useState(false);
-  const cardData = ALL_CARDS[cardInstance.cardId];
+  const allCards = getAllCards();
+  const cardData = allCards[cardInstance.cardId];
   if (!cardData) return null; // O un placeholder de error
 
   const { affix } = cardInstance;

@@ -1,9 +1,9 @@
-import React, { useRef, useEffect, useState } from 'react';
-import { CombatState, CardInstance, EnemyIntent } from '../types';
+import React, { useRef, useEffect, useState, useMemo } from 'react';
+import { CombatState, CardInstance, EnemyIntent, Combatant, Node } from '../types';
 import { Card } from './Card';
-import { ALL_CARDS } from '../data/cards';
+import { getAllCards } from '../data';
 import { ParticleBurst } from './ParticleBurst';
-import { PlanetCanvas } from './PlanetCanvas';
+import { getPlanetImageForNode } from '../services/imageRegistry';
 
 // Componente para números de daño flotantes
 interface FloatingNumber {
@@ -40,6 +40,8 @@ interface CombatInterfaceProps {
   onPlayCard: (cardInstanceId: string) => void;
   onEndTurn: () => void;
   onCombatComplete: (finalState: CombatState) => void;
+  onEscape?: () => void; // Botón de escape para pruebas
+  currentNodeId?: number; // Para obtener la imagen del planeta
 }
 
 // Iconos para las intenciones del enemigo
@@ -80,15 +82,6 @@ const IntentIcon: React.FC<{ intent: EnemyIntent }> = ({ intent }) => {
     );
 };
 
-// Simple background wrapper to render a seeded planet
-const PlanetBackground: React.FC<{ enemyName: string }> = ({ enemyName }) => {
-  const seed = Array.from(enemyName).reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
-  return (
-    <div className="w-full h-full">
-      <PlanetCanvas seed={seed} className="w-full h-full" />
-    </div>
-  );
-};
 
 // Panel que muestra la información de un combatiente (NUEVO DISEÑO COMPACTO)
 const CombatantPanel: React.FC<{ combatant: Combatant; onDamage?: (amount: number) => void }> = ({ combatant, onDamage }) => {
@@ -190,7 +183,8 @@ const CombatLog: React.FC<{ logs: string[] }> = ({ logs }) => {
     );
 };
 
-export const CombatInterface: React.FC<CombatInterfaceProps> = ({ combatState, onPlayCard, onEndTurn, onCombatComplete }) => {
+export const CombatInterface: React.FC<CombatInterfaceProps> = ({ combatState, onPlayCard, onEndTurn, onCombatComplete, onEscape, currentNodeId }) => {
+    const allCards = useMemo(() => getAllCards(), []);
     const { combatants, log, phase } = combatState;
     const player = combatants.find(c => c.isPlayer)!;
     const enemy = combatants.find(c => !c.isPlayer)!;
@@ -202,6 +196,8 @@ export const CombatInterface: React.FC<CombatInterfaceProps> = ({ combatState, o
     const effectTimerRef = useRef<NodeJS.Timeout | null>(null);
     const [usedCards, setUsedCards] = useState<CardInstance[]>([]);
     const [zoomedCard, setZoomedCard] = useState<CardInstance | null>(null);
+    const [isCardPlaying, setIsCardPlaying] = useState(false);
+    const [isGameOverHandled, setIsGameOverHandled] = useState(false);
 
     // Refs a paneles para efectos
     const playerPanelRef = useRef<HTMLDivElement>(null);
@@ -292,10 +288,10 @@ export const CombatInterface: React.FC<CombatInterfaceProps> = ({ combatState, o
     }, []);
 
     const handleCardDoubleClick = (cardInstance: CardInstance) => {
-        const cardData = ALL_CARDS[cardInstance.cardId];
+        const cardData = allCards[cardInstance.cardId];
         if (!cardData) return;
         const actualCost = Math.max(0, cardData.cost + (cardInstance.affix?.costModifier || 0));
-        const canPlay = isPlayerInputPhase && (player.energy || 0) >= actualCost;
+        const canPlay = isPlayerInputPhase && (player.energy || 0) >= actualCost && !isCardPlaying; // Condición actualizada
         
         if (canPlay) {
             setPlayedCard(cardInstance);
@@ -319,6 +315,7 @@ export const CombatInterface: React.FC<CombatInterfaceProps> = ({ combatState, o
                         setPlayedCard(null);
                         setCardEffect('');
                         setUsedCards(prev => [...prev, cardInstance]);
+                        setIsCardPlaying(false); // Desbloquear al finalizar
                     }, 800); // Duración de la animación de turbulencia
                 }, randomEffect === 'cardfx-shake' ? 600 : 1200); // Duración del efecto especial
             }, 2000); // 2 segundos iniciales
@@ -327,11 +324,71 @@ export const CombatInterface: React.FC<CombatInterfaceProps> = ({ combatState, o
 
   return (
     <div className="fixed inset-0 z-20 bg-black/80 animate-fade-in flex items-center justify-center">
-      {/* Animated planet background */}
-      <div className="absolute inset-0 -z-10">
-        <PlanetBackground enemyName={enemy.name} />
-      </div>
-      <div className="h-[85.5vh] w-[78.4vw] flex flex-col gap-3 p-3 bg-black/60 rounded-lg border border-cyan-500/30 backdrop-blur-sm">
+      <div 
+        className="h-[85.5vh] w-[78.4vw] flex flex-col gap-3 p-3 rounded-lg border border-cyan-500/30 backdrop-blur-sm relative overflow-hidden"
+        style={{
+          background: `
+            linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)),
+            url('https://i.ibb.co/d44ywdHY/Chat-GPT-Image-29-oct-2025-12-33-14.png')
+          `,
+          backgroundSize: 'cover, cover',
+          backgroundPosition: 'center, center',
+          backgroundRepeat: 'no-repeat'
+        }}
+      >
+        {/* Animated Planet Layer */}
+        {currentNodeId && (
+          <div className="absolute inset-0 pointer-events-none z-0">
+            {/* Planet with all effects */}
+            <div 
+              className="combat-planet"
+              style={{
+                position: 'absolute',
+                top: '35%',
+                left: '65%',
+                width: '420px',
+                height: '420px',
+                transform: 'translate(-50%, -50%)',
+                backgroundImage: `url('${getPlanetImageForNode(currentNodeId, [])}')`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+                backgroundRepeat: 'no-repeat',
+                borderRadius: '50%',
+                imageRendering: 'pixelated'
+              }}
+            />
+            
+            {/* Atmosphere Layer */}
+            <div 
+              className="combat-atmosphere"
+              style={{
+                position: 'absolute',
+                top: '35%',
+                left: '65%',
+                width: '440px',
+                height: '440px',
+                transform: 'translate(-50%, -50%)',
+                borderRadius: '50%',
+                pointerEvents: 'none'
+              }}
+            />
+            
+            {/* Texture Overlay */}
+            <div 
+              className="combat-texture-overlay"
+              style={{
+                position: 'absolute',
+                top: '35%',
+                left: '65%',
+                width: '420px',
+                height: '420px',
+                transform: 'translate(-50%, -50%)',
+                borderRadius: '50%',
+                pointerEvents: 'none'
+              }}
+            />
+          </div>
+        )}
       
       {/* Números de daño flotantes */}
       {floatingNumbers.map(num => (
@@ -339,7 +396,7 @@ export const CombatInterface: React.FC<CombatInterfaceProps> = ({ combatState, o
       ))}
       
       {/* Fila Superior: Paneles de Combatientes */}
-      <div className="flex gap-3 items-stretch flex-nowrap flex-shrink-0" style={{ height: '380px' }}>
+      <div className="flex gap-3 items-stretch flex-nowrap flex-shrink-0 overflow-visible" style={{ height: '420px' }}>
         {/* Izquierda: Jugador */}
         <div ref={playerPanelRef} className="w-52 shrink-0 flex flex-col items-center justify-start p-3 bg-gray-900/40 rounded-lg border border-cyan-500/20 overflow-hidden relative">
           {/* Particle effects for player */}
@@ -371,18 +428,31 @@ export const CombatInterface: React.FC<CombatInterfaceProps> = ({ combatState, o
         </div>
 
         {/* Centro: Cartas en Juego */}
-        <div className="flex-1 flex flex-col items-center justify-center p-4 gap-4 overflow-visible relative">
+        <div className="flex-1 flex flex-col items-center justify-center p-4 gap-4 overflow-visible relative z-10">
           {/* Carta Jugada en el Centro - Espacio reservado */}
-          <div className="h-[500px] w-96 flex items-center justify-center overflow-visible">
-            {playedCard && (
-              <div key={`${playedCard.instanceId}-${cardEffect}`} className={`${cardEffect}`}>
-                <div onMouseEnter={() => {}} onMouseLeave={() => {}}>
-                  <Card cardInstance={playedCard} onClick={() => {}} disabled={true} size="large" />
-                </div>
-              </div>
-            )}
+          <div className="h-[540px] w-96 flex items-center justify-center overflow-visible relative z-20">
+            {/* Espacio reservado para la carta */}
           </div>
         </div>
+        
+        {/* Carta Jugada - Posición Absoluta para evitar clipping */}
+        {playedCard && (
+          <div 
+            className="absolute pointer-events-none z-50"
+            style={{ 
+              top: '50%',
+              left: '35%', // Between center (50%) and left (0%) - closer to left
+              transform: 'translate(-50%, -50%)',
+              marginTop: '-100px' // Move it up above the hand area
+            }}
+          >
+            <div key={`${playedCard.instanceId}-${cardEffect}`} className={`${cardEffect}`}>
+              <div onMouseEnter={() => {}} onMouseLeave={() => {}}>
+                <Card cardInstance={playedCard} onClick={() => {}} disabled={true} size="large" />
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Derecha: Enemigo */}
         <div ref={enemyPanelRef} className="w-52 shrink-0 flex flex-col items-center justify-start p-3 bg-gray-900/40 rounded-lg border border-red-500/20 overflow-visible relative">
@@ -429,7 +499,7 @@ export const CombatInterface: React.FC<CombatInterfaceProps> = ({ combatState, o
             {usedCards.length > 0 ? (
               <div className="grid grid-cols-3 gap-1 h-full content-start overflow-y-auto pr-1">
                 {usedCards.map((card, index) => {
-                  const cardData = ALL_CARDS[card.cardId];
+                  const cardData = allCards[card.cardId];
                   return (
                     <div
                       key={`${card.instanceId}-${index}`}
@@ -458,7 +528,7 @@ export const CombatInterface: React.FC<CombatInterfaceProps> = ({ combatState, o
         {/* Centro: Mano de Cartas */}
         <div className="flex-1 flex justify-center items-end px-3">
           {player.hand && player.hand.map((cardInstance, index) => {
-            const cardData = ALL_CARDS[cardInstance.cardId];
+            const cardData = allCards[cardInstance.cardId];
             if (!cardData) return null;
             const actualCost = Math.max(0, cardData.cost + (cardInstance.affix?.costModifier || 0));
             const canPlay = isPlayerInputPhase && (player.energy || 0) >= actualCost;
@@ -515,13 +585,25 @@ export const CombatInterface: React.FC<CombatInterfaceProps> = ({ combatState, o
           {/* Botón Finalizar Turno */}
           <button
             onClick={onEndTurn}
-            disabled={!isPlayerInputPhase}
+            disabled={!isPlayerInputPhase || isCardPlaying} // Condición actualizada
             className="w-full font-orbitron text-sm p-1 rounded-md border flex-shrink-0
             disabled:bg-gray-800 disabled:border-gray-600 disabled:text-gray-500
             bg-green-700/80 border-green-500/70 hover:enabled:bg-green-600/80 hover:enabled:border-green-400"
           >
             Finalizar Turno
           </button>
+          
+          {/* Botón de Escape (Solo para pruebas) */}
+          {onEscape && (
+            <button
+              onClick={onEscape}
+              className="w-full font-orbitron text-xs p-1 rounded-md border flex-shrink-0 mt-1
+              bg-red-700/80 border-red-500/70 hover:bg-red-600/80 hover:border-red-400 text-red-100"
+              title="Escapar del combate (solo para pruebas)"
+            >
+              🏃 ESCAPAR
+            </button>
+          )}
           
           {/* Recursos: Energía, Fuego, Maniobra */}
           <div className="flex items-center justify-center gap-1 flex-shrink-0 my-1">
@@ -546,9 +628,9 @@ export const CombatInterface: React.FC<CombatInterfaceProps> = ({ combatState, o
       {/* Modal de Zoom de Carta */}
       {zoomedCard && (
         <div className="fixed inset-0 z-50 bg-black flex items-center justify-center p-4" onClick={() => setZoomedCard(null)}>
-          <div className="relative w-80 h-full max-h-96 cursor-pointer" onClick={(e) => e.stopPropagation()}>
+<div className="relative w-80 h-full max-h-96 cursor-pointer" onClick={() => setZoomedCard(null)}>
             {(() => {
-              const cardData = ALL_CARDS[zoomedCard.cardId];
+              const cardData = allCards[zoomedCard.cardId];
               return (
                 <div className="w-full h-full relative flex flex-col">
                   {cardData?.image && (
@@ -574,9 +656,14 @@ export const CombatInterface: React.FC<CombatInterfaceProps> = ({ combatState, o
             >
               {combatState.victory ? '¡VICTORIA!' : 'DERROTA'}
             </h2>
-            <button 
-                onClick={() => onCombatComplete(combatState)} 
-                className="mt-6 px-8 py-3 bg-cyan-600 hover:bg-cyan-500 rounded-lg font-bold text-white transition-colors text-lg"
+<button 
+                onClick={() => {
+                    if (isGameOverHandled) return;
+                    setIsGameOverHandled(true);
+                    onCombatComplete(combatState);
+                }}
+                disabled={isGameOverHandled}
+                className="mt-6 px-8 py-3 bg-cyan-600 hover:bg-cyan-500 rounded-lg font-bold text-white transition-colors text-lg disabled:bg-gray-600 disabled:cursor-not-allowed"
             >
                 Continuar
             </button>

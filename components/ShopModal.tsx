@@ -1,7 +1,7 @@
 // components/ShopModal.tsx
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { ShopInventory, PlayerState, ShopServiceType, ShopCard, CardInstance } from '../types';
-import { ALL_CARDS } from '../data/cards';
+import { getAllCards } from '../data';
 import { Card } from './Card';
 
 interface ShopModalProps {
@@ -33,8 +33,9 @@ const ShopHeader: React.FC<{ trait: ShopInventory['trait']; credits: number }> =
 
 
 // Componente para mostrar una carta en la tienda
-const ShopCardItem: React.FC<{ shopCard: ShopCard; playerCredits: number; onBuy: (shopCard: ShopCard) => void; }> = ({ shopCard, playerCredits, onBuy }) => {
-    const cardData = ALL_CARDS[shopCard.cardId];
+const ShopCardItem: React.FC<{ shopCard: ShopCard; playerCredits: number; onBuy: (shopCard: ShopCard) => void; isBusy: boolean; setIsBusy: (busy: boolean) => void; }> = ({ shopCard, playerCredits, onBuy, isBusy, setIsBusy }) => {
+    const allCards = useMemo(() => getAllCards(), []);
+    const cardData = allCards[shopCard.cardId];
     if (!cardData) return null;
     const canAfford = playerCredits >= shopCard.price;
     const dealClasses = shopCard.isDeal ? 'shadow-lg shadow-yellow-400/40 border-yellow-400/80' : '';
@@ -46,8 +47,13 @@ const ShopCardItem: React.FC<{ shopCard: ShopCard; playerCredits: number; onBuy:
             {shopCard.isDeal && <div className="absolute -top-2 -right-2 bg-yellow-400 text-black font-bold text-xs px-2 py-1 rounded-full z-10 transform rotate-12 animate-pulse">OFERTA</div>}
             <Card cardInstance={cardInstance} onClick={() => {}} disabled={!canAfford} />
             <button
-                onClick={() => onBuy(shopCard)}
-                disabled={!canAfford}
+                onClick={() => {
+                    if (isBusy) return;
+                    setIsBusy(true);
+                    onBuy(shopCard);
+                    setTimeout(() => setIsBusy(false), 500); // Prevenir spam de clics
+                }}
+                disabled={!canAfford || isBusy}
                 className={`w-full font-orbitron text-sm p-2 rounded-md border flex justify-center items-center gap-2
                 disabled:bg-gray-800 disabled:border-gray-600 disabled:text-gray-500
                 bg-green-700/80 border-green-500/70 hover:enabled:bg-green-600/80 hover:enabled:border-green-400`}
@@ -63,7 +69,7 @@ const ShopCardItem: React.FC<{ shopCard: ShopCard; playerCredits: number; onBuy:
 };
 
 // Componente para un servicio de la tienda
-const ShopServiceItem: React.FC<{ serviceType: ShopServiceType; price: number; playerCredits: number; onPerform: (serviceType: ShopServiceType) => void; }> = ({ serviceType, price, playerCredits, onPerform }) => {
+const ShopServiceItem: React.FC<{ serviceType: ShopServiceType; price: number; playerCredits: number; onPerform: (serviceType: ShopServiceType) => void; isBusy: boolean; setIsBusy: (busy: boolean) => void; }> = ({ serviceType, price, playerCredits, onPerform, isBusy, setIsBusy }) => {
     const canAfford = playerCredits >= price;
     const descriptions = {
         'remove_card': `Elimina permanentemente una carta de tu mazo por ${price} créditos.`,
@@ -73,8 +79,13 @@ const ShopServiceItem: React.FC<{ serviceType: ShopServiceType; price: number; p
 
     return (
         <button
-            onClick={() => onPerform(serviceType)}
-            disabled={!canAfford || serviceType !== 'remove_card'} // Deshabilitar servicios no implementados
+            onClick={() => {
+                if (isBusy) return;
+                setIsBusy(true);
+                onPerform(serviceType);
+                setTimeout(() => setIsBusy(false), 500);
+            }}
+            disabled={!canAfford || serviceType !== 'remove_card' || isBusy} // Deshabilitar servicios no implementados
             className={`w-full text-left p-4 rounded-md border transition-all duration-200 
             ${!canAfford || serviceType !== 'remove_card' ? 'bg-gray-800/50 border-gray-600/50 text-gray-500 cursor-not-allowed' :
             'bg-gray-700/50 border-cyan-600/50 hover:bg-cyan-500/20 hover:border-cyan-400'}`}
@@ -87,6 +98,7 @@ const ShopServiceItem: React.FC<{ serviceType: ShopServiceType; price: number; p
 
 export const ShopModal: React.FC<ShopModalProps> = ({ inventory, playerState, onBuyCard, onPerformService, onClose }) => {
   const [isRemovingCard, setIsRemovingCard] = useState(false);
+  const [isBusy, setIsBusy] = useState(false);
 
   const handleServiceClick = (serviceType: ShopServiceType) => {
       if (serviceType === 'remove_card') {
@@ -139,7 +151,7 @@ export const ShopModal: React.FC<ShopModalProps> = ({ inventory, playerState, on
               <h3 className="font-orbitron text-2xl text-cyan-400 border-b-2 border-cyan-500/30 pb-2 mb-4">Módulos y Tripulación</h3>
               <div className="flex-grow overflow-y-auto p-4 bg-black/30 rounded-lg grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6">
                 {inventory.cards.length > 0 ? inventory.cards.map(shopCard => (
-                  <ShopCardItem key={shopCard.cardId} shopCard={shopCard} playerCredits={playerState.credits} onBuy={onBuyCard} />
+                  <ShopCardItem key={shopCard.cardId} shopCard={shopCard} playerCredits={playerState.credits} onBuy={onBuyCard} isBusy={isBusy} setIsBusy={setIsBusy} />
                 )) : <p className="text-gray-500 col-span-full text-center">El mercader parece haberse quedado sin existencias.</p>}
               </div>
           </section>
@@ -155,6 +167,8 @@ export const ShopModal: React.FC<ShopModalProps> = ({ inventory, playerState, on
                         price={service.price}
                         playerCredits={playerState.credits}
                         onPerform={handleServiceClick}
+                        isBusy={isBusy}
+                        setIsBusy={setIsBusy}
                     />
                   ))}
               </div>

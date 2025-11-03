@@ -2,6 +2,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { saveGame, loadGame, deleteSave, hasSavedGame } from './saveManager';
 import type { PlayerState, MapData } from '../types';
+import { NodeType } from '../types';
 
 // Mock localStorage
 const localStorageMock = (() => {
@@ -21,25 +22,29 @@ describe('saveManager', () => {
     name: 'Test Ship',
     image: 'test.png',
     fuel: 10,
-    maxFuel: 10,
     credits: 100,
-    crew: [],
+    crew: 1,
+    moral: 10,
     hull: 50,
     maxHull: 50,
     shields: 30,
     maxShields: 30,
     deck: [],
-    xp: 0,
     level: 1,
+    xp: 0,
     xpToNextLevel: 100,
+    narrativeFlags: {},
+    crewAffinity: {},
+    achievements: [],
   };
 
   const mockMapData: MapData = {
     nodes: [
-      { id: 0, type: 'start', x: 0, y: 0, connections: [1], visited: true },
-      { id: 1, type: 'combat', x: 1, y: 1, connections: [], visited: false },
+      { id: 0, type: NodeType.START, layer: 0, x: 0, y: 0, connections: [1], visited: true },
+      { id: 1, type: NodeType.BATTLE, layer: 1, x: 1, y: 1, connections: [], visited: false },
     ],
     startNodeId: 0,
+    endNodeId: 1,
   };
 
   const mockLogs = ['Log 1', 'Log 2', 'Log 3'];
@@ -76,7 +81,9 @@ describe('saveManager', () => {
 
     it('debe manejar errores gracefully', () => {
       // Simular error en setItem
-      vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      const original = localStorage.setItem;
+      // @ts-ignore
+      vi.spyOn(localStorage as any, 'setItem').mockImplementation(() => {
         throw new Error('Storage full');
       });
       const result = saveGame(mockPlayerState, mockMapData, 0, mockLogs);

@@ -1,3 +1,7 @@
+import { z } from 'zod';
+
+import { ContentSchema } from './validationSchemas';
+
 // services/contentLoader.ts
 import { ShipData } from '../types';
 
@@ -58,56 +62,63 @@ class ContentLoader {
     }
   }
 
-  async loadContent(): Promise<ContentData> {
-    if (this.loaded && this.content) {
-      return this.content;
-    }
 
+
+  private async loadAndValidate<T extends z.ZodTypeAny>(url: string, schema: T): Promise<z.infer<T> | null> {
     try {
-      console.log('[ContentLoader] Cargando contenido desde archivos JSON...');
-      
-      // Cargar todos los archivos en paralelo (con decoder robusto)
-      const [shipsData, cardsData, eventsData, shopsData] = await Promise.all([
-        this.loadJsonRobust('/data/ships-converted.json'),
-        this.loadJsonRobust('/data/cards-converted.json'),
-        this.loadJsonRobust('/data/events-converted.json'),
-        this.loadJsonRobust('/data/shops-converted.json')
-      ]);
-
-      // Fusionar todos los datos en un solo objeto ContentData
-      this.content = {
-        version: shipsData.version || '1.0.0',
-        metadata: {
-          title: 'Navegador Galáctico - Content',
-          author: 'Dynamic Loader',
-          lastModified: new Date().toISOString(),
-          gameVersion: '1.0.0'
-        },
-        ships: shipsData.ships || [],
-        cards: cardsData.cards || [],
-        encounters: eventsData.encounters || [],
-        hazards: eventsData.hazards || [],
-        shops: shopsData.shops || [],
-        dialogues: [],
-        eventChains: []
-      };
-      
-      this.loaded = true;
-      
-      console.log('[ContentLoader] Contenido cargado exitosamente:', {
-        version: this.content.version,
-        ships: this.content.ships.length,
-        cards: this.content.cards.length,
-        encounters: this.content.encounters.length,
-        hazards: this.content.hazards.length,
-        shops: this.content.shops.length
-      });
-
-      return this.content;
+      const data = await this.loadJsonRobust(url);
+      const validation = schema.safeParse(data);
+      if (!validation.success) {
+        console.error(`[ContentLoader] Fallo de validación para ${url}:`, validation.error.issues);
+        return null;
+      }
+      return validation.data;
     } catch (error) {
-      console.error('[ContentLoader] Error cargando contenido:', error);
-      throw error;
+      console.error(`[ContentLoader] Error cargando ${url}:`, error);
+      return null;
     }
+  }
+
+  async loadContent(): Promise<ContentData | null> {
+    console.log('[ContentLoader] Iniciando carga de contenido...');
+
+    const shipsData = await this.loadAndValidate('/data/ships-converted.json', z.object({ ships: z.array(z.any()) }));
+    if (!shipsData) {
+        console.error("[ContentLoader] Carga de naves fallida. Deteniendo carga de contenido.");
+        return null;
+    }
+
+    // For now, we can let the others be optional or use fallbacks if needed
+    const cardsRawData = await this.loadJsonRobust('/data/cards-converted.json');
+    console.log('[ContentLoader] cardsRawData structure:', Object.keys(cardsRawData));
+    const cardsData = cardsRawData?.cards ? { cards: cardsRawData.cards } : null;
+    const eventsData = await this.loadAndValidate('/data/events-converted.json', z.object({ encounters: z.array(z.any()), hazards: z.array(z.any()) }));
+    const shopsData = await this.loadAndValidate('/data/shops-converted.json', z.object({ shops: z.array(z.any()) }));
+
+    const combinedData = {
+      ships: shipsData.ships || [],
+      cards: cardsData?.cards || [],
+      encounters: eventsData?.encounters || [],
+      hazards: eventsData?.hazards || [],
+      shops: shopsData?.shops || [],
+    };
+
+    this.content = {
+      ...combinedData,
+      version: '1.0.0',
+      metadata: {
+        title: 'Navegador Galáctico',
+        author: 'Game Developer',
+        lastModified: new Date().toISOString(),
+        gameVersion: '1.0.0'
+      },
+      dialogues: [],
+      eventChains: []
+    };
+    
+    this.loaded = true;
+    console.log('[ContentLoader] Contenido cargado.');
+    return this.content;
   }
 
   /**

@@ -1,13 +1,13 @@
 // services/shopManager.ts
 import { ShopInventory, ShopTrait, ShopCard } from '../types';
-import { ALL_CARDS } from '../data/cards';
+import { getAllCards } from '../data';
 
 const SHOP_TRAITS: ShopTrait[] = ['Generoso', 'Avaro', 'Contrabandista', 'Militar'];
 
 // Genera un inventario para el mercader con personalidad.
 export const generateShopInventory = (): ShopInventory => {
     const trait = SHOP_TRAITS[Math.floor(Math.random() * SHOP_TRAITS.length)];
-    const allCards = Object.values(ALL_CARDS);
+  const allCards = Object.values(getAllCards());
     
     let purchasableCards = allCards.filter(c => c.price > 0);
     let inventoryCardIds: string[] = [];
@@ -35,7 +35,7 @@ export const generateShopInventory = (): ShopInventory => {
     if (trait === 'Generoso') priceModifier = 0.75;
     
     const shopCards: ShopCard[] = inventoryCardIds.map(id => {
-        const cardData = ALL_CARDS[id];
+        const cardData = getAllCards()[id];
         return {
             cardId: id,
             price: Math.ceil(cardData.price * priceModifier),

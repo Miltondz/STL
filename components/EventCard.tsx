@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { EventCardData, EventOption, PlayerState, EventConsequenceResult } from '../types';
-import { ALL_CARDS } from '../data/cards';
+import { getAllCards } from '../data';
 
 interface EventCardProps {
   card: EventCardData;
@@ -15,6 +15,7 @@ const DEFAULT_EVENT_IMAGE = 'https://i.ibb.co/8gy7gQn4/evento-00-placeholder.jpg
 export const EventCard: React.FC<EventCardProps> = ({ card, playerState, onOptionSelect, onComplete, eventResult }) => {
   const [textStep, setTextStep] = useState(0);
   const [imgSrc, setImgSrc] = useState(card.image || DEFAULT_EVENT_IMAGE);
+  const allCards = useMemo(() => getAllCards(), []);
 
   // Resetea el paso del texto y la imagen si la carta cambia
   useEffect(() => {
@@ -46,7 +47,7 @@ export const EventCard: React.FC<EventCardProps> = ({ card, playerState, onOptio
     }
     if (option.crewRequirement) {
         if (!playerState.deck.some(cardInstance => cardInstance.cardId === option.crewRequirement)) {
-            const requiredCrewCard = ALL_CARDS[option.crewRequirement];
+            const requiredCrewCard = allCards[option.crewRequirement];
             return { met: false, reason: `Requiere: ${requiredCrewCard?.name || 'Tripulante Desconocido'}` };
         }
     }
@@ -61,20 +62,20 @@ export const EventCard: React.FC<EventCardProps> = ({ card, playerState, onOptio
   const renderDecisionView = () => (
     <>
       <div>
-        <p className="text-gray-300 text-lg leading-relaxed mb-6 font-mono h-36 overflow-y-auto">
-          {card.introText.slice(0, textStep + 1).map((text, i) => <span key={i} className="block animate-fade-in-up">{text}</span>)}
-        </p>
+        <div className="text-gray-300 text-base leading-relaxed mb-4 font-mono min-h-[120px] max-h-[160px] overflow-y-auto">
+          {card.introText.slice(0, textStep + 1).map((text, i) => <span key={i} className="block animate-fade-in-up mb-2">{text}</span>)}
+        </div>
 
         {showOptions ? (
-          <p className="text-cyan-200 text-xl font-bold text-center mb-6 animate-fade-in-up border-y-2 border-cyan-500/20 py-3">
+          <p className="text-cyan-200 text-lg font-bold text-center mb-4 animate-fade-in-up border-y-2 border-cyan-500/20 py-2">
             {card.promptText}
           </p>
         ) : (
-          <div className="h-16" /> // Placeholder to prevent layout shift
+          <div className="h-12" /> // Placeholder to prevent layout shift
         )}
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-2 max-h-[200px] overflow-y-auto">
         {showOptions ? (
           card.options.map((option, index) => {
             const { met, reason } = checkRequirements(option);
@@ -83,13 +84,13 @@ export const EventCard: React.FC<EventCardProps> = ({ card, playerState, onOptio
                 key={index}
                 onClick={() => met && onOptionSelect(option)}
                 disabled={!met}
-                className={`w-full text-left p-4 rounded-md border-2 transition-all duration-200 animate-fade-in-up
+                className={`w-full text-left p-3 rounded-md border-2 transition-all duration-200 animate-fade-in-up
                     ${met 
                     ? 'bg-gray-700/50 border-cyan-600/50 hover:bg-cyan-500/20 hover:border-cyan-400' 
                     : 'bg-gray-800/50 border-gray-600/50 text-gray-500 cursor-not-allowed opacity-70'}`}
                 style={{ animationDelay: `${index * 100}ms`}}
               >
-                <p className="font-semibold text-lg">{option.text}</p>
+                <p className="font-semibold text-base">{option.text}</p>
                 {reason && (
                   <p className="text-xs text-red-400 font-semibold mt-1">
                     BLOQUEADO: {reason}
@@ -101,7 +102,7 @@ export const EventCard: React.FC<EventCardProps> = ({ card, playerState, onOptio
         ) : (
           <button
             onClick={handleNextText}
-            className="w-full font-orbitron text-lg p-3 rounded-md border bg-cyan-700/80 border-cyan-500/70 hover:bg-cyan-600/80"
+            className="w-full font-orbitron text-base p-3 rounded-md border bg-cyan-700/80 border-cyan-500/70 hover:bg-cyan-600/80"
           >
             Siguiente &gt;
           </button>
@@ -112,16 +113,16 @@ export const EventCard: React.FC<EventCardProps> = ({ card, playerState, onOptio
 
   const renderResultView = () => (
     <div className="flex flex-col justify-center items-center h-full text-center">
-        <h3 className="font-orbitron text-2xl text-cyan-300 mb-4">Resultado del Evento</h3>
-        <div className="bg-black/30 p-4 rounded-lg w-full max-w-lg mb-6 text-left">
+        <h3 className="font-orbitron text-xl text-cyan-300 mb-3">Resultado del Evento</h3>
+        <div className="bg-black/30 p-3 rounded-lg w-full max-w-lg mb-4 text-left">
             {eventResult?.reactionText && (
-                <p className="text-yellow-300 italic mb-2 animate-fade-in-up">💬 {eventResult.reactionText}</p>
+                <p className="text-yellow-300 italic mb-2 animate-fade-in-up text-sm">💬 {eventResult.reactionText}</p>
             )}
-            <p className="text-gray-200 animate-fade-in-up" style={{ animationDelay: '100ms'}}>&gt; {eventResult?.log}</p>
+            <p className="text-gray-200 animate-fade-in-up text-sm" style={{ animationDelay: '100ms'}}>&gt; {eventResult?.log}</p>
         </div>
         <button
             onClick={onComplete}
-            className="w-48 font-orbitron text-lg p-3 rounded-md border bg-cyan-700/80 border-cyan-500/70 hover:bg-cyan-600/80 animate-fade-in-up"
+            className="w-40 font-orbitron text-base p-2 rounded-md border bg-cyan-700/80 border-cyan-500/70 hover:bg-cyan-600/80 animate-fade-in-up"
             style={{ animationDelay: '200ms'}}
         >
             Continuar
@@ -130,9 +131,9 @@ export const EventCard: React.FC<EventCardProps> = ({ card, playerState, onOptio
   );
   
   return (
-    <div className="bg-gray-900/80 backdrop-blur-md border border-cyan-500/30 rounded-lg shadow-2xl shadow-cyan-500/10 max-w-4xl w-full h-[90vh] max-h-[700px] flex flex-col animate-zoom-in-fade overflow-hidden">
+    <div className="bg-gray-900/80 backdrop-blur-md border border-cyan-500/30 rounded-lg shadow-2xl shadow-cyan-500/10 max-w-5xl w-full h-[85vh] max-h-[600px] flex flex-col animate-zoom-in-fade overflow-hidden">
         {/* Sección de Imagen y Título */}
-        <div className="relative h-2/5 flex-shrink-0">
+        <div className="relative h-1/3 flex-shrink-0">
             <img 
               src={imgSrc} 
               alt={card.title} 
@@ -145,7 +146,7 @@ export const EventCard: React.FC<EventCardProps> = ({ card, playerState, onOptio
         </div>
 
         {/* Sección de Contenido Narrativo */}
-        <div className="flex-grow p-6 flex flex-col justify-between overflow-y-auto">
+        <div className="flex-grow p-4 flex flex-col justify-between min-h-0">
             {eventResult ? renderResultView() : renderDecisionView()}
         </div>
     </div>

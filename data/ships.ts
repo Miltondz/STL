@@ -43,7 +43,7 @@ export const ALL_SHIPS: ShipData[] = [
             'BASE_DISPARO01', 'BASE_DISPARO01',
             'BASE_MANIOBRA01', 'BASE_MANIOBRA01',
             'BASE_OPERACIONES01', 'BASE_OPERACIONES01', 'BASE_OPERACIONES01', 'BASE_OPERACIONES01',
-            'CREW_ZYX_COMERCIANTE', 
+            'CREW_DR_ARIS_THORN', 
             'REPAIR_1', 
         ],
         initialFuel: 15,

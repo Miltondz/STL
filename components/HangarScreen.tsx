@@ -44,7 +44,7 @@ const ShipCard: React.FC<{ ship: ShipData; isSelected: boolean; isDimmed: boolea
                 />
             </div>
             <div className="text-center">
-                <p className="text-xs text-gray-300 truncate">{ship.trait.name}</p>
+                <p className="text-xs text-gray-300 truncate">{ship.trait?.name || 'Sin rasgo'}</p>
                 <div className="flex justify-center mt-1">
                     {Array.from({ length: 3 }).map((_, i) => (
                         <span key={i} className={`text-lg ${i < ship.difficulty ? 'text-yellow-400' : 'text-gray-600'}`}>★</span>
@@ -57,11 +57,24 @@ const ShipCard: React.FC<{ ship: ShipData; isSelected: boolean; isDimmed: boolea
 
 // Subcomponente para el panel de detalles de la nave seleccionada
 const ShipDetailsPanel: React.FC<{ ship: ShipData; onStart: () => void; onReturn: () => void; zoomedCard: CardInstance | null; setZoomedCard: (ci: CardInstance | null) => void; }> = ({ ship, onStart, onReturn, zoomedCard, setZoomedCard }) => {
+    const [isBusy, setIsBusy] = useState(false);
+
+    const handleStart = () => {
+        if (isBusy) return;
+        setIsBusy(true);
+        onStart();
+    };
+
+    const handleReturn = () => {
+        if (isBusy) return;
+        setIsBusy(true);
+        onReturn();
+    };
     const typedDescription = useTypingEffect(ship.description, 20);
     const [currentPage, setCurrentPage] = useState(0);
     const CARDS_PER_PAGE = 3;
 
-    const initialDeckInstances: CardInstance[] = ship.initialDeck.map((cardId, index) => ({
+    const initialDeckInstances: CardInstance[] = (ship.initialDeck || []).map((cardId, index) => ({
         instanceId: `hangar_${ship.id}_${cardId}_${index}`,
         cardId,
     }));
@@ -87,10 +100,12 @@ const ShipDetailsPanel: React.FC<{ ship: ShipData; onStart: () => void; onReturn
                             {typedDescription}
                             <span className="typing-cursor">|</span>
                         </p>
-                        <div className="bg-gray-800/50 p-3 rounded mt-4">
-                            <h4 className="font-bold text-cyan-400">{ship.trait.name}</h4>
-                            <p className="text-sm text-gray-300">{ship.trait.description}</p>
-                        </div>
+                        {ship.trait && (
+                            <div className="bg-gray-800/50 p-3 rounded mt-4">
+                                <h4 className="font-bold text-cyan-400">{ship.trait.name}</h4>
+                                <p className="text-sm text-gray-300">{ship.trait.description}</p>
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -100,10 +115,10 @@ const ShipDetailsPanel: React.FC<{ ship: ShipData; onStart: () => void; onReturn
                         <img src={ship.image} alt={ship.name} className="max-w-full max-h-full h-auto w-auto object-contain" />
                     </div>
                     <div className="flex justify-center items-center gap-2 flex-shrink-0">
-                        <button onClick={onReturn} className="px-6 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg font-bold text-white text-sm font-orbitron transition-all duration-300">
+                        <button onClick={handleReturn} disabled={isBusy} className="px-6 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg font-bold text-white text-sm font-orbitron transition-all duration-300 disabled:opacity-50">
                             Volver
                         </button>
-                        <button onClick={onStart} className="px-8 py-2 bg-cyan-600 hover:bg-cyan-500 rounded-lg font-bold text-white text-base font-orbitron transition-all duration-300 transform hover:scale-105">
+                        <button onClick={handleStart} disabled={isBusy} className="px-8 py-2 bg-cyan-600 hover:bg-cyan-500 rounded-lg font-bold text-white text-base font-orbitron transition-all duration-300 transform hover:scale-105 disabled:opacity-50">
                             DESPEGAR
                         </button>
                     </div>
@@ -198,6 +213,7 @@ export const HangarScreen: React.FC<HangarScreenProps> = ({ onStartGame, onRetur
     document.body.classList.add('in-hangar');
     // Cargar naves usando el sistema centralizado
     const ships = getAllShips();
+    console.log('[DEBUG] Loaded ships:', ships.map(s => ({ id: s.id, name: s.name })));
     setDisplayedShips(ships);
     return () => document.body.classList.remove('in-hangar');
   }, []);
@@ -211,6 +227,9 @@ export const HangarScreen: React.FC<HangarScreenProps> = ({ onStartGame, onRetur
   };
 
   const selectedShip = displayedShips.find(ship => ship.id === selectedShipId);
+  
+  console.log('[DEBUG] Current selectedShipId:', selectedShipId);
+  console.log('[DEBUG] Found selectedShip:', selectedShip?.name);
 
   return (
     <div 
@@ -237,16 +256,22 @@ export const HangarScreen: React.FC<HangarScreenProps> = ({ onStartGame, onRetur
           </div>
       
       <div className="flex justify-center items-center gap-8 mb-6 flex-shrink-0 relative z-10">
-        {displayedShips.map((ship, index) => (
-          <ShipCard 
-            key={ship.id}
-            ship={ship}
-            isSelected={ship.id === selectedShipId}
-            isDimmed={selectedShipId !== null && ship.id !== selectedShipId}
-            onSelect={() => setSelectedShipId(ship.id)}
-            animDelay={`${index * 150 + 200}ms`}
-          />
-        ))}
+        {displayedShips.map((ship, index) => {
+          console.log('[DEBUG] Rendering ship:', index, ship.id, ship.name, 'isSelected:', ship.id === selectedShipId);
+          return (
+            <ShipCard 
+              key={ship.id}
+              ship={ship}
+              isSelected={ship.id === selectedShipId}
+              isDimmed={selectedShipId !== null && ship.id !== selectedShipId}
+              onSelect={() => {
+                console.log('[DEBUG] Ship selected:', ship.id, ship.name);
+                setSelectedShipId(ship.id);
+              }}
+              animDelay={`${index * 150 + 200}ms`}
+            />
+          );
+        })}
       </div>
       
       <div className="flex-grow w-full flex justify-center items-center min-h-0 relative z-10 px-4">
