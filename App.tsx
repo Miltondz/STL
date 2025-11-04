@@ -5,6 +5,7 @@ import React, { useEffect } from 'react';
 // Context & Hooks
 import { useGame } from './contexts/GameContext';
 import { useGameHandlers } from './hooks/useGameHandlers';
+import { NodeType } from './types';
 
 // Components
 import { GalacticMap } from './components/GalacticMap';
@@ -68,6 +69,7 @@ function App() {
     handleSimulationComplete,
     handleExitNode,
     handleEscapeCombat,
+    handleShopAccess,
   } = useGameHandlers();
   
   const { setGamePhase } = useGame();
@@ -176,22 +178,15 @@ function App() {
       </main>
 
       <aside className="md:col-span-1 h-full min-h-0 flex flex-col gap-4">
-        <div className="flex items-center justify-between">
-          <PlayerStatus state={playerState} />
-          <button
-            onClick={() => setIsPauseOpen(true)}
-            className="ml-2 px-3 py-1 bg-gray-800 border border-cyan-500/30 rounded text-cyan-300 hover:bg-gray-700"
-            title="Pausa"
-          >
-            ⏸️
-          </button>
+        <div className="h-28 flex-shrink-0">
+          <PlayerStatus state={playerState} onPauseClick={() => setIsPauseOpen(true)} />
         </div>
         <div className="flex-1 min-h-0 flex flex-col gap-4">
-          <div className="flex-1 min-h-0">
+          <div className="flex-[0.6] min-h-0">
             <TravelLog logs={logs} />
           </div>
-          <div className="flex-1 min-h-0">
-            <NodeViewer node={currentNode} onEventTrigger={handleProbeNode} />
+          <div className="flex-[1.6] min-h-0">
+            <NodeViewer node={currentNode} onEventTrigger={handleProbeNode} onShopAccess={handleShopAccess} />
           </div>
         </div>
       </aside>
@@ -218,7 +213,10 @@ function App() {
           <CardRewardScreen cardIds={cardRewards} onCardSelect={handleCardRewardSelect} title={rewardTitle} />
       )}
       {gamePhase === 'SHOP' && shopInventory && (
-          <ShopModal inventory={shopInventory} playerState={playerState} onBuyCard={handleBuyCard} onPerformService={handlePerformService} onClose={() => setGamePhase('IN_GAME')} />
+          <ShopModal inventory={shopInventory} playerState={playerState} onBuyCard={handleBuyCard} onPerformService={handlePerformService} onClose={() => {
+            // Al salir de la tienda, siempre regresar al mapa
+            setGamePhase('IN_GAME');
+          }} />
       )}
       {gamePhase === 'SIMULATION_RESULT' && simulationResult && (
           <GenericModal title="Resultado del Nodo" onClose={handleSimulationComplete}>

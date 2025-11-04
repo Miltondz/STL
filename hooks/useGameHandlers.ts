@@ -53,7 +53,10 @@ export const useGameHandlers = () => {
       resetEventCardStates();
       resetStationImageAssignments(); // Reset station image assignments for new game
 
+      console.log('[DEBUG] Starting game with ship:', ship.name);
+      console.log('[DEBUG] Ship initialDeck:', ship.initialDeck);
       const initialDeck = ship.initialDeck.map(createCardInstance);
+      console.log('[DEBUG] Created deck instances:', initialDeck.length);
       const newPlayerState = {
         ...BASE_PLAYER_STATE,
         name: ship.name,
@@ -147,7 +150,10 @@ export const useGameHandlers = () => {
         ].includes(selectedNode.type);
 
         if (nodeHasAction) {
-            setGamePhase('NODE_ACTION_PENDING');
+            // Delay adicional para que el jugador vea la nave llegar al nodo
+            setTimeout(() => {
+                setGamePhase('NODE_ACTION_PENDING');
+            }, 800); // 800ms adicionales después del viaje
         }
 
       }, 500);
@@ -369,6 +375,17 @@ export const useGameHandlers = () => {
     addLog('Has escapado del combate (modo de prueba).');
   }, [setActiveCombat, setGamePhase, addLog]);
 
+  const handleShopAccess = useCallback(() => {
+    if (!playerState || !mapData) return;
+    
+    const currentNode = mapData.nodes.find(n => n.id === currentNodeId);
+    if (currentNode?.type === NodeType.SHOP) {
+      setShopInventory(generateShopInventory());
+      setGamePhase('SHOP');
+      addLog('Accediendo a la estación comercial...');
+    }
+  }, [playerState, mapData, currentNodeId, setShopInventory, setGamePhase, addLog]);
+
   return {
     handleShowHangar,
     handleReturnToStartScreen,
@@ -389,5 +406,6 @@ export const useGameHandlers = () => {
     handleSimulationComplete,
     handleExitNode,
     handleEscapeCombat,
+    handleShopAccess,
   };
 };

@@ -66,6 +66,7 @@ export interface ShipData {
     id: string;
     name: string;
     image: string;
+    tokenImage?: string; // Imagen del token para el mapa
     subtype: string;
     faction: string;
     description: string;

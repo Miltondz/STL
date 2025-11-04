@@ -4,11 +4,12 @@ import { getAllCards } from '../data';
 
 interface PlayerStatusProps {
   state: PlayerState;
+  onPauseClick?: () => void;
 }
 
 // Componente para mostrar los recursos actuales del jugador.
 // Proporciona una vista rápida del estado del juego.
-export const PlayerStatus: React.FC<PlayerStatusProps> = ({ state }) => {
+export const PlayerStatus: React.FC<PlayerStatusProps> = ({ state, onPauseClick }) => {
 
   const uniqueCrewInDeck = useMemo(() => {
     const ALL_CARDS = getAllCards();
@@ -23,31 +24,48 @@ export const PlayerStatus: React.FC<PlayerStatusProps> = ({ state }) => {
   }, [state.deck]);
 
   return (
-    <div className="bg-gray-900/70 backdrop-blur-sm p-3 rounded-lg border border-cyan-500/20">
-      <div className="flex flex-wrap gap-x-6 gap-y-2 md:gap-x-8 justify-center items-center">
-        <StatusItem label="Combustible" value={state.fuel} icon="⛽" />
-        <StatusItem label="Créditos" value={state.credits} icon="💰" />
-        <StatusItem label="Casco" value={`${state.hull}/${state.maxHull}`} icon="❤️" />
-        <StatusItem label="Escudos" value={`${state.shields}/${state.maxShields}`} icon="🛡️" />
-        <StatusItem label="Tripulación" value={state.crew} icon="👨‍🚀" />
-        <StatusItem label="Moral" value={state.moral} icon="😊" />
-        <StatusItem label="Mazo" value={state.deck.length} icon="🃏" />
+    <div className="bg-gray-900/70 backdrop-blur-sm p-1.5 rounded-lg border border-cyan-500/20 h-full flex flex-col">
+      <div className="flex justify-between items-center mb-1">
+        <div className="flex gap-x-3 flex-1 justify-between">
+          <StatusItem label="Combustible" value={state.fuel} icon="⛽" />
+          <StatusItem label="Créditos" value={state.credits} icon="💰" />
+          <StatusItem label="Casco" value={`${state.hull}/${state.maxHull}`} icon="❤️" />
+          <StatusItem label="Mazo" value={state.deck.length} icon="🃏" />
+        </div>
+        {onPauseClick && (
+          <button
+            onClick={onPauseClick}
+            className="px-2 py-1 bg-gray-800 border border-cyan-500/30 rounded text-cyan-300 hover:bg-gray-700 ml-2 text-xs"
+            title="Pausa"
+          >
+            ⏸️
+          </button>
+        )}
       </div>
-      {(uniqueCrewInDeck.length > 0) && (
-        <CrewAffinityDisplay crewIds={uniqueCrewInDeck} affinity={state.crewAffinity} />
-      )}
+
       <XPBar level={state.level} xp={state.xp} xpToNextLevel={state.xpToNextLevel} />
+      
+      {/* Botón de menú */}
+      {onPauseClick && (
+        <button
+          onClick={onPauseClick}
+          className="mt-1 w-full px-2 py-1 bg-gray-800 border border-cyan-500/30 rounded text-cyan-300 hover:bg-gray-700 text-xs font-orbitron transition-colors"
+          title="Menú"
+        >
+          ☰ MENÚ
+        </button>
+      )}
     </div>
   );
 };
 
 // Componente de ayuda para mostrar un único item de estado.
 const StatusItem: React.FC<{ label: string; value: number | string; icon: string }> = ({ label, value, icon }) => (
-  <div className="flex items-center gap-2 text-md">
-    <span className="text-2xl">{icon}</span>
-    <div>
-      <span className="font-bold font-orbitron text-cyan-300">{value}</span>
-      <span className="text-gray-400 ml-2 text-sm">{label}</span>
+  <div className="flex items-center gap-1">
+    <span className="text-sm">{icon}</span>
+    <div className="flex items-baseline gap-1">
+      <span className="font-bold font-orbitron text-cyan-300 text-xs">{value}</span>
+      <span className="text-gray-400 text-xs leading-none">{label.slice(0, 3)}</span>
     </div>
   </div>
 );
@@ -57,12 +75,12 @@ const XPBar: React.FC<{ level: number, xp: number, xpToNextLevel: number }> = ({
     const percentage = xpToNextLevel > 0 ? (xp / xpToNextLevel) * 100 : 0;
     
     return (
-        <div className="mt-3 px-2">
-            <div className="flex justify-between items-center mb-1 text-sm">
-                <span className="font-orbitron font-bold text-lg text-yellow-300">NIVEL {level}</span>
-                <span className="text-gray-400 font-semibold">XP: {xp} / {xpToNextLevel}</span>
+        <div className="mt-1 px-1">
+            <div className="flex justify-between items-center mb-0.5">
+                <span className="font-orbitron font-bold text-xs text-yellow-300">LVL {level}</span>
+                <span className="text-gray-400 text-xs">{xp}/{xpToNextLevel}</span>
             </div>
-            <div className="progress-bar-bg h-3 w-full border-yellow-500/50">
+            <div className="progress-bar-bg h-1.5 w-full border-yellow-500/50">
                 <div className="progress-bar-fill bg-yellow-400" style={{ width: `${percentage}%` }}></div>
             </div>
         </div>

@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useState } from 'react';
 import { Node as NodeTypeData, NodeType, PlayerState } from '../types';
 import { NodeIcon } from './Icons';
 import { NODE_COLORS } from '../constants';
+import { getAllShips } from '../data';
 
 interface GalacticMapProps {
   nodes: NodeTypeData[];
@@ -10,7 +11,7 @@ interface GalacticMapProps {
   playerState?: PlayerState;
 }
 
-import { getPlanetImageForNode } from '../services/imageRegistry';
+import { getPlanetImageForNode, showPlanetAssignments } from '../services/imageRegistry';
 
 // Generate a deterministic seed for planet based on node ID
 const getNodePlanetSeed = (nodeId: number): number => {
@@ -25,8 +26,17 @@ const pseudoRandom = (seed: number) => {
 
 // Obtener la imagen del token según el tipo de nave del jugador
 const getPlayerTokenImage = (playerState?: PlayerState): string => {
-  if (!playerState) return 'https://i.ibb.co/Vcmby2F6/mini-ship01.png'; // Default: Mercader Errante
+  if (!playerState) return 'https://i.ibb.co/Vcmby2F6/mini-ship01.png'; // Default fallback
   
+  // Intentar obtener tokenImage desde los datos de la nave
+  const allShips = getAllShips();
+  const currentShip = allShips.find(ship => ship.name === playerState.name);
+  
+  if (currentShip?.tokenImage) {
+    return currentShip.tokenImage;
+  }
+  
+  // Fallback al sistema anterior si no se encuentra en JSON
   const shipName = playerState.name.toLowerCase();
   
   if (shipName.includes('puño') || shipName.includes('hierro') || shipName.includes('iron') || shipName.includes('fist')) {
@@ -174,16 +184,16 @@ const MapNode: React.FC<{ node: NodeTypeData; allNodes: NodeTypeData[]; isCurren
         {/* Cloud/Atmosphere Overlay OR Station Energy Field */}
         {node.type === NodeType.SHOP ? (
           /* Campo de energía para estaciones */
-          <circle cx="0" cy="0" r="2.2" fill="none" stroke="rgba(103,232,249,0.3)" strokeWidth="0.15">
+          <circle cx="0" cy="0" r="2.2" fill="none" stroke="rgba(103,232,249,0.3)" strokeWidth="0.08">
             <animate attributeName="r" values="2.2;2.5;2.2" dur={`${animDuration * 1.2}s`} repeatCount="indefinite" begin={`${animDelay}s`} />
-            <animate attributeName="stroke-width" values="0.15;0.25;0.15" dur={`${animDuration * 1.2}s`} repeatCount="indefinite" begin={`${animDelay}s`} />
+            <animate attributeName="stroke-width" values="0.08;0.15;0.08" dur={`${animDuration * 1.2}s`} repeatCount="indefinite" begin={`${animDelay}s`} />
             <animate attributeName="opacity" values="0.3;0.6;0.3" dur={`${animDuration}s`} repeatCount="indefinite" begin={`${animDelay}s`} />
           </circle>
         ) : (
           /* Atmósfera para planetas */
-          <circle cx="0" cy="0" r="1.75" fill="none" stroke="rgba(200,220,255,0.15)" strokeWidth="0.1">
+          <circle cx="0" cy="0" r="1.75" fill="none" stroke="rgba(200,220,255,0.15)" strokeWidth="0.05">
             <animate attributeName="r" values="1.75;1.85;1.75" dur={`${animDuration * 1.5}s`} repeatCount="indefinite" begin={`${animDelay}s`} />
-            <animate attributeName="stroke-width" values="0.1;0.2;0.1" dur={`${animDuration * 1.5}s`} repeatCount="indefinite" begin={`${animDelay}s`} />
+            <animate attributeName="stroke-width" values="0.05;0.12;0.05" dur={`${animDuration * 1.5}s`} repeatCount="indefinite" begin={`${animDelay}s`} />
           </circle>
         )}
 
@@ -195,7 +205,7 @@ const MapNode: React.FC<{ node: NodeTypeData; allNodes: NodeTypeData[]; isCurren
 
         {/* Optional Ring Effect */}
         {randomVal > 0.6 && (
-          <circle cx="0" cy="0" r="2.2" fill="none" stroke="rgba(150,180,220,0.2)" strokeWidth="0.15">
+          <circle cx="0" cy="0" r="2.2" fill="none" stroke="rgba(150,180,220,0.2)" strokeWidth="0.08">
             <animateTransform
               attributeName="transform"
               type="rotate"
@@ -215,7 +225,7 @@ const MapNode: React.FC<{ node: NodeTypeData; allNodes: NodeTypeData[]; isCurren
           r="4" 
           fill="none" 
           stroke="#67e8f9" 
-          strokeWidth="0.3"
+          strokeWidth="0.15"
           className="animate-pulse"
           style={{ pointerEvents: 'none', filter: 'drop-shadow(0 0 4px #67e8f9)' }}
         />
@@ -227,7 +237,7 @@ const MapNode: React.FC<{ node: NodeTypeData; allNodes: NodeTypeData[]; isCurren
           r="3.5" 
           fill="none" 
           stroke="#67e8f9"
-          strokeWidth="0.2"
+          strokeWidth="0.1"
           strokeDasharray="0.5 0.5"
           style={{ pointerEvents: 'none', opacity: 0.7 }}
         />
@@ -235,7 +245,7 @@ const MapNode: React.FC<{ node: NodeTypeData; allNodes: NodeTypeData[]; isCurren
 
       {/* Visited Indicator */}
       {node.visited && !isCurrent && (
-        <circle r="0.5" cx="2.5" cy="-2.5" fill="#34d399" stroke="#1f2937" strokeWidth="0.2" style={{ pointerEvents: 'none' }} />
+        <circle r="0.5" cx="2.5" cy="-2.5" fill="#34d399" stroke="#1f2937" strokeWidth="0.1" style={{ pointerEvents: 'none' }} />
       )}
     </g>
   );
@@ -250,10 +260,20 @@ const PlayerShipToken: React.FC<{
   currentNode?: NodeTypeData;
 }> = ({ x, y, isMoving, playerState, currentNode }) => {
   const [imageError, setImageError] = useState(false);
+  const [orbitAngle, setOrbitAngle] = useState(0);
+  
+  // Animación orbital suave sin tartamudeo
+  useEffect(() => {
+    if (!isMoving) {
+      const interval = setInterval(() => {
+        setOrbitAngle(prev => prev + 0.02);
+      }, 16); // ~60fps
+      return () => clearInterval(interval);
+    }
+  }, [isMoving]);
   
   // Calcular posición orbital (desplazado del centro del nodo)
   const orbitRadius = 3.5; // Distancia del centro del nodo
-  const orbitAngle = Date.now() * 0.0005; // Rotación lenta
   const orbitX = x + Math.cos(orbitAngle) * orbitRadius;
   const orbitY = y + Math.sin(orbitAngle) * orbitRadius;
   
@@ -265,13 +285,8 @@ const PlayerShipToken: React.FC<{
     setImageError(true);
   };
 
-  // Determinar qué imagen usar
-  let tokenImage: string;
-  if (currentNode?.type === NodeType.SHOP) {
-    tokenImage = getShopTokenImage(currentNode.id);
-  } else {
-    tokenImage = getPlayerTokenImage(playerState);
-  }
+  // El token del jugador siempre debe mostrar la nave del jugador
+  const tokenImage = getPlayerTokenImage(playerState);
 
   return (
     <g transform={`translate(${orbitX}, ${orbitY})`} style={tokenStyle}>
@@ -330,6 +345,14 @@ const PlayerShipToken: React.FC<{
 export const GalacticMap: React.FC<GalacticMapProps> = ({ nodes, currentNodeId, onNodeSelect, playerState }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const [animatingTo, setAnimatingTo] = useState<{ x: number; y: number } | null>(null);
+  
+  // Debug: mostrar asignaciones de planetas una vez
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      showPlanetAssignments();
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [nodes]);
   const [displayX, setDisplayX] = useState(0);
   const [displayY, setDisplayY] = useState(0);
 
@@ -478,17 +501,43 @@ export const GalacticMap: React.FC<GalacticMapProps> = ({ nodes, currentNodeId, 
           node.connections.map(connId => {
             const connection = nodeMap.get(connId);
             if (!connection) return null;
+            
+            // Solo mostrar líneas si:
+            // 1. Ambos nodos han sido visitados (línea sólida verde)
+            // 2. El nodo actual se conecta con un nodo disponible (línea punteada)
             const isPathVisited = node.visited && connection.visited;
-            const strokeColor = isPathVisited ? '#34d399' : '#6b7280';
+            const isCurrentToAvailable = (node.id === currentNodeId && availableNodeIds.has(connId)) ||
+                                       (connection.id === currentNodeId && availableNodeIds.has(node.id));
+            
+            // No mostrar la línea si no cumple ninguna condición
+            if (!isPathVisited && !isCurrentToAvailable) return null;
+            
+            const strokeColor = isPathVisited ? '#34d399' : '#60a5fa';
+            const strokeDasharray = isPathVisited ? 'none' : '0.5,1';
+            
+            // Calcular puntos con margen (no desde el centro exacto)
+            const margin = 2.5; // Margen en píxeles desde el borde del nodo
+            const dx = connection.x - node.x;
+            const dy = connection.y - node.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            const unitX = dx / distance;
+            const unitY = dy / distance;
+            
+            const startX = node.x + unitX * margin;
+            const startY = node.y + unitY * margin;
+            const endX = connection.x - unitX * margin;
+            const endY = connection.y - unitY * margin;
+            
             return (
               <line
                 key={`${node.id}-${connId}`}
-                x1={node.x}
-                y1={node.y}
-                x2={connection.x}
-                y2={connection.y}
+                x1={startX}
+                y1={startY}
+                x2={endX}
+                y2={endY}
                 stroke={strokeColor}
-                strokeWidth="0.5"
+                strokeWidth="0.1"
+                strokeDasharray={strokeDasharray}
                 className="transition-all duration-500"
                 style={ isPathVisited ? { filter: 'drop-shadow(0 0 2px #34d399)' } : {}}
               />

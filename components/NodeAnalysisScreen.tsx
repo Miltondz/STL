@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Node, NodeType } from '../types';
 import { getPlanetImageForNode } from '../services/imageRegistry';
+import { RetroMonitor, RETRO_COLORS } from './RetroMonitor';
 
 interface NodeAnalysisScreenProps {
     node: Node;
@@ -118,10 +119,10 @@ export const NodeAnalysisScreen: React.FC<NodeAnalysisScreenProps> = ({
             </div>
 
             {/* Contenido principal */}
-            <div className="relative w-full max-w-4xl mx-auto p-8">
+            <div className="relative w-full max-w-3xl mx-auto p-4">
                 {/* Header */}
-                <div className="text-center mb-8">
-                    <h1 className="text-4xl font-orbitron text-cyan-400 mb-2 animate-pulse">
+                <div className="text-center mb-4">
+                    <h1 className="text-3xl font-orbitron text-cyan-400 mb-2 animate-pulse">
                         ANÁLISIS DE SECTOR
                     </h1>
                     <div className="text-cyan-300 font-mono">
@@ -130,11 +131,41 @@ export const NodeAnalysisScreen: React.FC<NodeAnalysisScreenProps> = ({
                 </div>
 
                 {/* Monitor principal */}
-                <div className="bg-black border-4 border-cyan-500/30 rounded-lg p-8 mb-6 relative overflow-hidden">
-                    {/* Planeta grande con efectos */}
-                    <div className="flex justify-center mb-6">
-                        <div className="relative">
-                            <svg viewBox="-4 -4 8 8" width="300" height="300" className="drop-shadow-2xl">
+                <div className="bg-black border-4 border-cyan-500/30 rounded-lg p-4 mb-4 relative overflow-hidden min-h-[300px]">
+                    {/* HUD superpuesto sobre todo el panel */}
+                    <div className="absolute inset-0 p-8 text-cyan-300 font-mono pointer-events-none">
+                        {/* Información superior izquierda */}
+                        <div className="absolute top-8 left-8 bg-black/30 backdrop-blur-sm rounded p-3 pointer-events-auto">
+                            <div className="text-xs text-gray-400">TIPO DE SECTOR</div>
+                            <div className="text-xl font-bold text-cyan-400 mb-2">{typeName}</div>
+                            <div className="text-xs text-gray-400">ESTADO</div>
+                            <div className={`text-sm font-bold ${node.visited ? 'text-green-400' : 'text-yellow-400'}`}>
+                                {node.visited ? 'VISITADO' : 'NO VISITADO'}
+                            </div>
+                        </div>
+
+                        {/* Progreso de escaneo superior centro-derecha */}
+                        <div className="absolute top-8 right-8 bg-black/20 backdrop-blur-sm rounded p-3 min-w-[250px] pointer-events-auto">
+                            <div className="text-xs text-gray-400 mb-2">PROGRESO DE ESCANEO</div>
+                            <div className="w-full bg-gray-800/50 rounded-full h-3 mb-1">
+                                <div
+                                    className="bg-cyan-400 h-3 rounded-full transition-all duration-100 shadow-lg shadow-cyan-400/50"
+                                    style={{ width: `${scanProgress}%` }}
+                                />
+                            </div>
+                            <div className="text-right text-sm font-bold text-cyan-300">{scanProgress}%</div>
+                        </div>
+
+
+                    </div>
+
+                    {/* Planeta grande con efectos retro ligeros */}
+                    <div className="mb-3">
+                        <RetroMonitor
+                            height={400}
+                            colors={RETRO_COLORS.CYAN}
+                        >
+                            <svg viewBox="-4 -4 8 8" width="400" height="400" className="drop-shadow-2xl">
                                 <defs>
                                     <filter id="tv-atmosphere" x="-50%" y="-50%" width="200%" height="200%">
                                         <feTurbulence type="fractalNoise" baseFrequency="0.08" numOctaves="3" result="turbulence">
@@ -168,10 +199,9 @@ export const NodeAnalysisScreen: React.FC<NodeAnalysisScreenProps> = ({
                                     />
                                 </image>
 
-                                {/* Atmósfera */}
-                                <circle cx="0" cy="0" r="2.5" fill="none" stroke="rgba(103,232,249,0.3)" strokeWidth="0.1">
+                                {/* Atmósfera - círculo super delgado y semi transparente */}
+                                <circle cx="0" cy="0" r="2.5" fill="none" stroke="rgba(103,232,249,0.15)" strokeWidth="0.02">
                                     <animate attributeName="r" values="2.5;2.7;2.5" dur="8s" repeatCount="indefinite" />
-                                    <animate attributeName="stroke-width" values="0.1;0.2;0.1" dur="8s" repeatCount="indefinite" />
                                 </circle>
 
                                 {/* Highlight especular */}
@@ -181,12 +211,12 @@ export const NodeAnalysisScreen: React.FC<NodeAnalysisScreenProps> = ({
                                 </ellipse>
                             </svg>
 
-                            {/* Alerta superpuesta */}
+                            {/* Alerta a la derecha del planeta */}
                             {showAlert && needsAction && (
-                                <div className="absolute inset-0 flex items-center justify-center">
+                                <div className="absolute inset-0 flex items-center justify-end pr-8 z-20">
                                     <button
                                         onClick={onEventTrigger}
-                                        className={`px-6 py-3 rounded-lg border-2 font-orbitron font-bold text-lg transition-all duration-300 hover:scale-110 animate-pulse ${alertColor}`}
+                                        className={`px-4 py-4 rounded-lg border-2 font-orbitron font-bold text-base transition-all duration-300 hover:scale-110 animate-pulse ${alertColor} max-w-[200px] leading-tight`}
                                     >
                                         {node.type === NodeType.BATTLE || node.type === NodeType.MINI_BOSS || node.type === NodeType.HAZARD ?
                                             '⚠️ PELIGRO DETECTADO' :
@@ -197,41 +227,18 @@ export const NodeAnalysisScreen: React.FC<NodeAnalysisScreenProps> = ({
                                     </button>
                                 </div>
                             )}
-                        </div>
+                        </RetroMonitor>
                     </div>
 
-                    {/* Información del nodo */}
-                    <div className="grid grid-cols-2 gap-8 text-cyan-300 font-mono">
-                        <div>
-                            <div className="mb-4">
-                                <span className="text-gray-400">TIPO DE SECTOR:</span>
-                                <div className="text-2xl font-bold text-cyan-400">{typeName}</div>
-                            </div>
-                            <div className="mb-4">
-                                <span className="text-gray-400">ESTADO:</span>
-                                <div className={`text-lg ${node.visited ? 'text-green-400' : 'text-yellow-400'}`}>
-                                    {node.visited ? 'VISITADO' : 'NO VISITADO'}
-                                </div>
+                    {/* Descripción con coordenadas */}
+                    <div className="mt-2 p-3 bg-gray-900/50 rounded border border-cyan-500/20 relative">
+                        <div className="flex justify-between items-start mb-2">
+                            <div className="text-gray-400 text-sm">ANÁLISIS DETALLADO:</div>
+                            <div className="bg-black/30 backdrop-blur-sm rounded px-2 py-1">
+                                <span className="text-gray-400 text-xs">COORD:</span>
+                                <span className="text-cyan-300 ml-1 font-bold text-xs">[{Math.round(node.x)}, {Math.round(node.y)}]</span>
                             </div>
                         </div>
-                        <div>
-                            {/* Barra de progreso de escaneo */}
-                            <div className="mb-4">
-                                <span className="text-gray-400">PROGRESO DE ESCANEO:</span>
-                                <div className="w-full bg-gray-800 rounded-full h-3 mt-2">
-                                    <div
-                                        className="bg-cyan-500 h-3 rounded-full transition-all duration-100"
-                                        style={{ width: `${scanProgress}%` }}
-                                    />
-                                </div>
-                                <div className="text-right text-sm mt-1">{scanProgress}%</div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Descripción */}
-                    <div className="mt-6 p-4 bg-gray-900/50 rounded border border-cyan-500/20">
-                        <div className="text-gray-400 text-sm mb-2">ANÁLISIS DETALLADO:</div>
                         <p className="text-cyan-300 leading-relaxed">{description}</p>
                     </div>
                 </div>
@@ -247,7 +254,7 @@ export const NodeAnalysisScreen: React.FC<NodeAnalysisScreenProps> = ({
                         </button>
                     )}
 
-                    {showAlert && needsAction && (
+                    {showAlert && needsAction && node.type !== NodeType.SHOP && (
                         <button
                             onClick={onEventTrigger}
                             className={`px-8 py-3 rounded-lg border-2 font-orbitron font-bold transition-all duration-300 hover:scale-105 flex items-center gap-2 ${alertColor}`}
@@ -261,7 +268,7 @@ export const NodeAnalysisScreen: React.FC<NodeAnalysisScreenProps> = ({
                         </button>
                     )}
 
-                    {node.type === NodeType.SHOP && (
+                    {node.type === NodeType.SHOP && showAlert && (
                         <button
                             onClick={onEventTrigger}
                             className="px-8 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-orbitron transition-colors flex items-center gap-2"

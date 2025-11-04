@@ -118,6 +118,9 @@ class ContentLoader {
     
     this.loaded = true;
     console.log('[ContentLoader] Contenido cargado.');
+    console.log('[ContentLoader] Encounters cargados:', this.content.encounters.length);
+    console.log('[ContentLoader] Hazards cargados:', this.content.hazards.length);
+    console.log('[ContentLoader] Ships cargadas:', this.content.ships.length);
     return this.content;
   }
 
@@ -176,7 +179,11 @@ class ContentLoader {
    * Obtiene todos los encuentros
    */
   getEncounters(): any[] {
-    if (!this.content) return [];
+    if (!this.content) {
+      console.log('[ContentLoader] getEncounters: No content loaded');
+      return [];
+    }
+    console.log('[ContentLoader] getEncounters: Returning', this.content.encounters?.length || 0, 'encounters');
     return this.content.encounters || [];
   }
 
@@ -184,7 +191,11 @@ class ContentLoader {
    * Obtiene todos los peligros
    */
   getHazards(): any[] {
-    if (!this.content) return [];
+    if (!this.content) {
+      console.log('[ContentLoader] getHazards: No content loaded');
+      return [];
+    }
+    console.log('[ContentLoader] getHazards: Returning', this.content.hazards?.length || 0, 'hazards');
     return this.content.hazards || [];
   }
 

@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { Node, NodeType } from '../types';
 import { getPlanetImageForNode } from '../services/imageRegistry';
+import { RetroMonitor, RETRO_COLORS } from './RetroMonitor';
 
 interface NodeViewerProps {
   node: Node;
   onEventTrigger: () => void;
+  onShopAccess?: () => void;
 }
 
 // Íconos para los botones de acción
@@ -52,7 +54,9 @@ const getNodeTypeName = (type: NodeType): string => {
 };
 
 
-export const NodeViewer: React.FC<NodeViewerProps> = ({ node, onEventTrigger }) => {
+
+
+export const NodeViewer: React.FC<NodeViewerProps> = ({ node, onEventTrigger, onShopAccess }) => {
   const [isActionTaken, setIsActionTaken] = useState(false);
 
   const handleActionClick = () => {
@@ -74,48 +78,39 @@ export const NodeViewer: React.FC<NodeViewerProps> = ({ node, onEventTrigger }) 
         </span>
       </div>
 
-      {/* Monitor con efectos retro */}
-      <div className="retro-monitor relative flex-grow flex flex-col">
-        {/* SVG Planeta animado con efecto de monitor */}
-        <div className="relative mb-3 rounded border border-cyan-500/30 overflow-hidden bg-black/50 flex items-center justify-center" style={{ height: '140px' }}>
-          <svg viewBox="-3 -3 6 6" width="120" height="120" style={{ filter: 'drop-shadow(0 0 4px rgba(103, 232, 249, 0.4))' }}>
-            <defs>
-              <filter id="monitor-atmosphere" x="-50%" y="-50%" width="200%" height="200%">
-                <feTurbulence type="fractalNoise" baseFrequency="0.1" numOctaves="2" result="turbulence">
-                  <animate attributeName="baseFrequency" dur="8s" values="0.1;0.12;0.1" repeatCount="indefinite" />
-                </feTurbulence>
-                <feDisplacementMap in="SourceGraphic" in2="turbulence" scale="1.5" />
-              </filter>
-            </defs>
-            {/* Planet Image */}
-            <image href={getPlanetImageForNode(node.id, [node])} x="-1.75" y="-1.75" height="3.5" width="3.5" filter="url(#monitor-atmosphere)" opacity="0.9" />
-            
-            {/* Atmosphere Glow */}
-            <circle cx="0" cy="0" r="1.75" fill="none" stroke="rgba(103,232,249,0.2)" strokeWidth="0.1">
-              <animate attributeName="r" values="1.75;1.85;1.75" dur="12s" repeatCount="indefinite" />
-              <animate attributeName="stroke-width" values="0.1;0.15;0.1" dur="12s" repeatCount="indefinite" />
-            </circle>
-            
-            {/* Specular Highlight */}
-            <ellipse cx="-0.8" cy="-0.8" rx="0.3" ry="0.4" fill="white" opacity="0.4">
-              <animate attributeName="cx" values="-0.8;0.8;-0.8" dur="16s" repeatCount="indefinite" />
-              <animate attributeName="cy" values="-0.8;0.8;-0.8" dur="16s" repeatCount="indefinite" />
-            </ellipse>
-          </svg>
-          {/* Efecto de scanlines */}
-          <div className="absolute inset-0 pointer-events-none" style={{
-            backgroundImage: 'repeating-linear-gradient(0deg, rgba(0,0,0,0.15) 0px, rgba(0,0,0,0.15) 1px, transparent 1px, transparent 2px)',
-            backgroundSize: '100% 2px'
-          }} />
-          {/* Efecto de vignette */}
-          <div className="absolute inset-0 pointer-events-none" style={{
-            boxShadow: 'inset 0 0 50px rgba(0,0,0,0.5)'
-          }} />
+      {/* Monitor con efectos retro usando el componente reutilizable */}
+      <div className="relative flex-grow flex flex-col">
+        <RetroMonitor
+          height={200}
+          leftColumns={{ count: 5, position: 'left' }}
+          rightColumns={{ count: 5, position: 'right' }}
+          typingLines={{ count: 24, left: 56, top: 8, width: 100, height: 180 }}
+          colors={RETRO_COLORS.GREEN}
+        >
+          <div style={{ marginLeft: '20px' }}>
+            <svg viewBox="-3 -3 6 6" width="180" height="180" style={{ filter: 'drop-shadow(0 0 4px rgba(34, 197, 94, 0.4))' }}>
+              <image 
+                href={getPlanetImageForNode(node.id, [node])} 
+                x="-1.75" 
+                y="-1.75" 
+                height="3.5" 
+                width="3.5" 
+                opacity="0.9"
+              >
+                <animateTransform
+                  attributeName="transform"
+                  type="rotate"
+                  values="0 0 0; 360 0 0"
+                  dur="60s"
+                  repeatCount="indefinite"
+                />
+              </image>
+            </svg>
+          </div>
 
           {/* Botones de Acción sobre el Planeta */}
-          <div className="absolute inset-0 flex items-center justify-around">
+          <div className="absolute inset-0 flex items-center justify-around z-20">
             {node.type === NodeType.BATTLE || node.type === NodeType.MINI_BOSS ? (
-              // Alerta de Combate
               <button 
                 onClick={handleActionClick}
                 disabled={isActionTaken || node.visited}
@@ -123,7 +118,6 @@ export const NodeViewer: React.FC<NodeViewerProps> = ({ node, onEventTrigger }) 
                 {icons.danger}
               </button>
             ) : ([NodeType.ENCOUNTER, NodeType.SHOP, NodeType.SPECIAL_EVENT].includes(node.type)) ? (
-              // Botón de Evento/Tienda
               <button 
                 onClick={handleActionClick}
                 disabled={isActionTaken || node.visited}
@@ -132,7 +126,7 @@ export const NodeViewer: React.FC<NodeViewerProps> = ({ node, onEventTrigger }) 
               </button>
             ) : null}
           </div>
-        </div>
+        </RetroMonitor>
 
         {/* Información del nodo */}
         <div className="flex-grow space-y-2 font-mono text-sm">
@@ -151,23 +145,20 @@ export const NodeViewer: React.FC<NodeViewerProps> = ({ node, onEventTrigger }) 
               {description}
             </p>
           </div>
+
+          {/* Botón específico para tiendas */}
+          {node.type === NodeType.SHOP && onShopAccess && (
+            <div className="mt-3 pt-2 border-t border-cyan-500/20">
+              <button
+                onClick={onShopAccess}
+                className="w-full px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-orbitron rounded transition-colors flex items-center justify-center gap-2"
+              >
+                🏬 ACCEDER A TIENDA
+              </button>
+            </div>
+          )}
         </div>
 
-        {/* Efecto de flicker sutil */}
-        <style>{`
-          .retro-monitor {
-            animation: subtle-flicker 3s infinite;
-          }
-          
-          @keyframes subtle-flicker {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.98; }
-          }
-          
-          .retro-text {
-            text-shadow: 0 0 2px rgba(103, 232, 249, 0.3);
-          }
-        `}</style>
       </div>
     </div>
   );

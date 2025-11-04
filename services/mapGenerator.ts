@@ -1,4 +1,5 @@
 import { MapData, Node, NodeType } from '../types';
+import { resetPlanetAssignments, debugPlanetDistribution } from './imageRegistry';
 
 // --- Constantes de Configuración del Mapa ---
 const NUM_LAYERS = 15;
@@ -47,6 +48,9 @@ const chooseNextColumn = (currentColumn: number, minCol: number, maxCol: number,
 
 // --- Función Principal de Generación ---
 export const generateMap = (): MapData => {
+    // Reset planet assignments for new map
+    resetPlanetAssignments();
+    
     let nodeIdCounter = 0;
     const nodes: Node[] = [];
     // Rejilla para rastrear la ocupación de nodos y evitar colisiones
@@ -203,22 +207,64 @@ export const generateMap = (): MapData => {
         node.type = Math.random() < 0.6 ? NodeType.SHOP : NodeType.SPECIAL_EVENT;
     });
 
-    // Colocación estratégica de tiendas en cada ruta (25%, 60%, 90%)
+    // Función para verificar distancia mínima entre tiendas
+    const hasShopWithinDistance = (nodeId: number, distance: number, visited: Set<number> = new Set()): boolean => {
+        if (visited.has(nodeId) || distance <= 0) return false;
+        visited.add(nodeId);
+        
+        const node = nodes.find(n => n.id === nodeId);
+        if (!node) return false;
+        
+        // Si encontramos una tienda, violamos la regla
+        if (node.type === NodeType.SHOP) return true;
+        
+        // Verificar padres (hacia atrás)
+        for (const parentId of node.connections) {
+            const parentNode = nodes.find(n => n.id === parentId);
+            if (parentNode && parentNode.layer < node.layer) { // Solo padres
+                if (hasShopWithinDistance(parentId, distance - 1, new Set(visited))) {
+                    return true;
+                }
+            }
+        }
+        
+        // Verificar hijos (hacia adelante)
+        const children = nodes.filter(n => n.connections.includes(nodeId) && n.layer > node.layer);
+        for (const child of children) {
+            if (hasShopWithinDistance(child.id, distance - 1, new Set(visited))) {
+                return true;
+            }
+        }
+        
+        return false;
+    };
+
+    // Colocación estratégica de tiendas en cada ruta (25%, 60%, 90%) con verificación de distancia
     mainPaths.forEach(path => {
         if (path.length > 6) { // Solo en rutas suficientemente largas
             const shop25Index = Math.floor(path.length * 0.25);
             const shop60Index = Math.floor(path.length * 0.60);
             const shop90Index = Math.floor(path.length * 0.90);
             
-            // Colocar tiendas en los porcentajes especificados
+            // Colocar primera tienda (25%)
             if (path[shop25Index] && path[shop25Index].layer > 1) {
-                path[shop25Index].type = NodeType.SHOP;
+                if (!hasShopWithinDistance(path[shop25Index].id, 3)) {
+                    path[shop25Index].type = NodeType.SHOP;
+                }
             }
+            
+            // Colocar segunda tienda (60%) verificando distancia
             if (path[shop60Index] && path[shop60Index].layer > 1 && shop60Index !== shop25Index) {
-                path[shop60Index].type = NodeType.SHOP;
+                if (!hasShopWithinDistance(path[shop60Index].id, 3)) {
+                    path[shop60Index].type = NodeType.SHOP;
+                }
             }
+            
+            // Colocar tercera tienda (90%) verificando distancia
             if (path[shop90Index] && path[shop90Index].layer > 1 && shop90Index !== shop25Index && shop90Index !== shop60Index) {
-                path[shop90Index].type = NodeType.SHOP;
+                if (!hasShopWithinDistance(path[shop90Index].id, 3)) {
+                    path[shop90Index].type = NodeType.SHOP;
+                }
             }
         }
     });
@@ -284,34 +330,19 @@ export const generateMap = (): MapData => {
     const beneficialTypes = [NodeType.ENCOUNTER, NodeType.SHOP, NodeType.SPECIAL_EVENT];
     let beneficialTypeIndex = 0;
 
-    // Regla 2: Distancia mínima de 3 nodos entre tiendas
-    const checkShopDistance = (nodeId: number, distance: number): boolean => {
-        if (distance >= 3) return true; // Suficiente distancia
-        
-        const parents = predecessors.get(nodeId) || [];
-        for (const parentId of parents) {
-            const parentNode = nodeMap.get(parentId);
-            if (parentNode) {
-                if (parentNode.type === NodeType.SHOP) {
-                    return false; // Encontró una tienda muy cerca
-                }
-                // Continuar buscando hacia atrás
-                if (!checkShopDistance(parentId, distance + 1)) {
-                    return false;
-                }
-            }
-        }
-        return true;
-    };
-
+    // Regla 2: Verificación final de distancia mínima entre tiendas (limpieza)
     sortedNodes.forEach(currentNode => {
         if (currentNode.type !== NodeType.SHOP) return;
 
-        // Verificar si hay suficiente distancia desde otras tiendas
-        if (!checkShopDistance(currentNode.id, 0)) {
-            // Cambiar la tienda actual a otro tipo beneficioso
-            const alternativeTypes = [NodeType.ENCOUNTER, NodeType.SPECIAL_EVENT];
-            currentNode.type = alternativeTypes[Math.floor(Math.random() * alternativeTypes.length)];
+        const parents = predecessors.get(currentNode.id) || [];
+        for (const parentId of parents) {
+            const parentNode = nodeMap.get(parentId);
+            if (parentNode && parentNode.type === NodeType.SHOP) {
+                // Si encontramos una tienda inmediatamente anterior, convertir esta
+                const alternativeTypes = [NodeType.ENCOUNTER, NodeType.SPECIAL_EVENT];
+                currentNode.type = alternativeTypes[Math.floor(Math.random() * alternativeTypes.length)];
+                break;
+            }
         }
     });
 
@@ -383,5 +414,10 @@ export const generateMap = (): MapData => {
         node.y = y_padding + (node.y / (NUM_LAYERS - 1)) * (MAP_HEIGHT - y_padding * 2) + layerJitter;
     });
 
+    // Debug planet distribution after map generation
+    setTimeout(() => {
+        debugPlanetDistribution();
+    }, 1000); // Delay to allow planet assignments to complete
+    
     return { nodes, startNodeId: startNode.id, endNodeId: endNode.id };
 };

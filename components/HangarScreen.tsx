@@ -79,10 +79,16 @@ const ShipDetailsPanel: React.FC<{ ship: ShipData; onStart: () => void; onReturn
         cardId,
     }));
     
+    // Debug logs para las cartas del hangar
+    console.log('[DEBUG] ship.initialDeck:', ship.initialDeck);
+    console.log('[DEBUG] initialDeckInstances:', initialDeckInstances);
+    
     const totalPages = Math.ceil(initialDeckInstances.length / CARDS_PER_PAGE);
     const startIndex = currentPage * CARDS_PER_PAGE;
     const endIndex = startIndex + CARDS_PER_PAGE;
     const cardsToShow = initialDeckInstances.slice(startIndex, endIndex);
+    
+    console.log('[DEBUG] cardsToShow:', cardsToShow);
 
     useEffect(() => {
         setCurrentPage(0);
@@ -230,6 +236,7 @@ export const HangarScreen: React.FC<HangarScreenProps> = ({ onStartGame, onRetur
   
   console.log('[DEBUG] Current selectedShipId:', selectedShipId);
   console.log('[DEBUG] Found selectedShip:', selectedShip?.name);
+  console.log('[DEBUG] Selected ship initialDeck:', selectedShip?.initialDeck);
 
   return (
     <div 

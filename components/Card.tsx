@@ -15,9 +15,15 @@ interface CardProps {
 // Componente que renderiza una única carta en la mano del jugador.
 export const Card: React.FC<CardProps> = ({ cardInstance, onClick, onDoubleClick, disabled, size = 'normal' }) => {
   const [showTooltip, setShowTooltip] = useState(false);
+  
   const allCards = getAllCards();
   const cardData = allCards[cardInstance.cardId];
-  if (!cardData) return null; // O un placeholder de error
+  
+  if (!cardData) {
+    return <div className="w-40 h-56 bg-red-500/50 border border-red-400 rounded-lg flex items-center justify-center text-white text-xs">
+      Card not found: {cardInstance.cardId}
+    </div>;
+  }
 
   const { affix } = cardInstance;
   const { name, type, rarity, image, faction, subtype } = cardData;

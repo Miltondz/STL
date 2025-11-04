@@ -9,16 +9,24 @@ Roguelike de exploración espacial y combate por turnos con construcción de maz
 - Eventos narrativos con requisitos (tripulantes, créditos, banderas) y resultados probabilísticos.
 - Intenciones del enemigo visibles (ataque/defensa/mixto) para planificar el turno.
 - Sistema de guardado automático versionado (localStorage) + Exportar/Importar partidas (JSON).
+- **Efectos visuales retro CRT**: Monitor estilo terminal antiguo con scanlines, efectos Matrix y texto animado tipo alien.
+- **Componente RetroMonitor reutilizable**: Sistema modular para aplicar efectos CRT en cualquier parte del juego.
 - Efectos visuales: números flotantes, partículas de daño/escudo/curación, temblores de panel.
 - Carga dinámica de contenido desde JSON (naves, cartas, eventos) con fallback a datos locales.
 - Editor web de contenido (cartas, naves, eventos) en `./editor/`.
+- **Menú de pausa mejorado**: Configuración de audio, guardar y salir, abandonar juego con modales personalizados.
 
 
 ## Cómo jugar (rápido)
 - Doble clic en una carta de tu mano para jugarla.
 - Tras ~2s la carta aplica un efecto especial (giro/temblor), luego turbulencia y se resuelven sus efectos.
 - Observa la intención del enemigo (borde amarillo) para decidir.
-- Usa el botón ⏸️ para abrir el menú de pausa (guardar/exportar/importar).
+- Usa el botón **☰ MENÚ** en el panel de estado para acceder a:
+  - Continuar juego
+  - Guardar y salir
+  - Configuración de audio (música y efectos)
+  - Exportar/Importar partidas
+  - Abandonar juego
 
 
 ## Demo local
@@ -81,6 +89,10 @@ Documentación de diseño y roadmap:
 
 ## Estructura de carpetas (resumen)
 - `components/` UI del juego (mapa, combate, cartas, modales, pausa).
+  - `RetroMonitor.tsx` — Componente reutilizable para efectos CRT retro con columnas Matrix y texto animado
+  - `NodeViewer.tsx` — Panel lateral con mini monitor CRT mostrando el nodo actual
+  - `NodeAnalysisScreen.tsx` — Pantalla de análisis de sector con efectos CRT ligeros
+  - `PauseMenu.tsx` — Menú de pausa con configuración y modales personalizados
 - `services/` reglas y lógica del juego (guardado, contenido, eventos, combate, mapa).
 - `data/` catálogos locales (en migración a JSON).
 - `types.ts` y `types/*` tipos de dominio (incluye esquemas de contenido y de cadenas narrativas).
@@ -99,7 +111,15 @@ Documentación de diseño y roadmap:
 - `npm test` / `npm run test:run` / `npm run test:ui` — pruebas.
 
 
+## Nuevas características (última actualización)
+- ✅ **Efectos CRT retro**: Componente `RetroMonitor` con scanlines, gradientes animados y efectos Matrix
+- ✅ **Texto Matrix animado**: Columnas verticales de caracteres japoneses/binarios con velocidades variables
+- ✅ **Líneas de texto horizontal**: Efecto de tecleado con colores aleatorios simulando análisis alien
+- ✅ **Menú de pausa mejorado**: Configuración de audio, guardar y salir, modales personalizados
+- ✅ **Modales del juego**: Reemplazo completo de alerts/confirms del sistema por diálogos personalizados
+
 ## Roadmap breve
 - Tutorial interactivo y mejoras de feedback visual.
 - Migración completa a contenido JSON (cartas, eventos, tiendas, cadenas).
+- Sistema de audio funcional (música y efectos de sonido).
 - Más pruebas (services y flujos críticos) y CI.

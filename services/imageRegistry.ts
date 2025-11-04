@@ -51,6 +51,9 @@ export function getPlanetImageForNode(nodeId: number, nodes: { id: number; x: nu
   const randomIndex = Math.floor(pseudoRandom(nodeId) * availableImages.length);
   const selectedImage = availableImages[randomIndex];
 
+  console.log(`[ImageRegistry] Node ${nodeId}: Selected planet ${selectedImage} (index ${randomIndex}/${availableImages.length})`);
+  console.log(`[ImageRegistry] Available images: ${availableImages.length}, Forbidden: ${forbiddenImages.size}`);
+  
   assignedImages.set(nodeId, selectedImage);
   return selectedImage;
 }
@@ -65,4 +68,53 @@ export function preloadPlanetImages() {
     img.src = path;
   }
   console.log(`[ImageRegistry] ${PLANET_IMAGE_PATHS.length} images preloaded.`);
+}
+
+/**
+ * Shows current planet assignments for debugging
+ */
+export function showPlanetAssignments() {
+  console.log('[ImageRegistry] Current planet assignments:');
+  const imageCount = new Map<string, number>();
+  
+  for (const [nodeId, imagePath] of assignedImages.entries()) {
+    const count = imageCount.get(imagePath) || 0;
+    imageCount.set(imagePath, count + 1);
+    console.log(`  Node ${nodeId}: ${imagePath}`);
+  }
+  
+  console.log('[ImageRegistry] Image usage summary:');
+  for (const [imagePath, count] of imageCount.entries()) {
+    console.log(`  ${imagePath}: used ${count} times`);
+  }
+}
+
+/**
+ * Debug function to show planet distribution
+ */
+export function debugPlanetDistribution() {
+  console.log('[ImageRegistry] Planet distribution:');
+  const distribution = new Map<string, number>();
+  
+  for (const [nodeId, imagePath] of assignedImages.entries()) {
+    const count = distribution.get(imagePath) || 0;
+    distribution.set(imagePath, count + 1);
+  }
+  
+  console.log(`[ImageRegistry] Total nodes with planets: ${assignedImages.size}`);
+  console.log(`[ImageRegistry] Unique planets used: ${distribution.size}/${PLANET_IMAGE_PATHS.length}`);
+  
+  // Mostrar distribución
+  for (const [imagePath, count] of distribution.entries()) {
+    const planetNumber = imagePath.match(/planet(\d+)\.png/)?.[1];
+    console.log(`[ImageRegistry] Planet ${planetNumber}: used ${count} times`);
+  }
+}
+
+/**
+ * Reset planet assignments (useful for new maps)
+ */
+export function resetPlanetAssignments() {
+  assignedImages.clear();
+  console.log('[ImageRegistry] Planet assignments reset');
 }
