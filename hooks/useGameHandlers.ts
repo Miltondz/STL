@@ -422,9 +422,18 @@ export const useGameHandlers = () => {
         });
         addLog(`Reparas ${healAmount} puntos de casco.`);
       } else if (serviceType === 'upgrade_card' && cardInstanceId) {
-        const newDeck = playerState.deck.map((c) =>
-          c.instanceId === cardInstanceId && !c.affix ? { ...c, affix: UPGRADE_AFFIX } : c
-        );
+        const newDeck = playerState.deck.map((c) => {
+          if (c.instanceId !== cardInstanceId || c.affix) return c;
+          const cardData = getAllCards()[c.cardId];
+          const upgraded = cardData?.upgradedVersion;
+          const affix: CardAffix = upgraded ? {
+            name: 'Mejorada',
+            description: upgraded.description ?? cardData.description,
+            costModifier: upgraded.cost !== undefined ? upgraded.cost - cardData.cost : -1,
+            valueModifier: upgraded.value !== undefined ? upgraded.value - (cardData.value || 0) : 2,
+          } : UPGRADE_AFFIX;
+          return { ...c, affix };
+        });
         setPlayerState({ ...playerState, credits: playerState.credits - price, deck: newDeck });
         addLog('Has mejorado una carta de tu mazo.');
       }

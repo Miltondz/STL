@@ -240,8 +240,20 @@ const startPlayerTurn = (state: CombatState, rng: SeededRNG): CombatState => {
     let newState = { ...state, combatants: JSON.parse(JSON.stringify(state.combatants)), log: [...state.log] };
     const playerMutatable = newState.combatants.find(c => c.isPlayer)!;
 
-    playerMutatable.discardPile = [...playerMutatable.discardPile!, ...playerMutatable.hand!];
-    playerMutatable.hand = [];
+    // Discard hand: RETAIN stays, ETHEREAL exiles, rest discards
+    const retained: CardInstance[] = [];
+    for (const card of playerMutatable.hand!) {
+        const cd = getAllCards()[card.cardId];
+        if (cd?.keywords?.includes('RETAIN')) {
+            retained.push(card);
+        } else if (cd?.keywords?.includes('ETHEREAL')) {
+            playerMutatable.exilePile!.push(card);
+            newState.log.push(`${cd.name} se esfuma (Etéreo).`);
+        } else {
+            playerMutatable.discardPile!.push(card);
+        }
+    }
+    playerMutatable.hand = retained;
 
     playerMutatable.energy = playerMutatable.maxEnergy;
     playerMutatable.fuego = 0;
@@ -263,6 +275,19 @@ const startPlayerTurn = (state: CombatState, rng: SeededRNG): CombatState => {
         }
         const card = playerMutatable.drawPile!.pop();
         if (card) playerMutatable.hand!.push(card);
+    }
+
+    // INNATE: on turn 1, force-draw any remaining INNATE cards from drawPile
+    if (newState.turn === 1) {
+        const innateIndices: number[] = [];
+        playerMutatable.drawPile!.forEach((c, i) => {
+            if (getAllCards()[c.cardId]?.keywords?.includes('INNATE')) innateIndices.push(i);
+        });
+        for (const i of innateIndices.reverse()) {
+            const [card] = playerMutatable.drawPile!.splice(i, 1);
+            playerMutatable.hand!.push(card);
+            newState.log.push(`${getAllCards()[card.cardId]?.name ?? card.cardId} siempre disponible (Innata).`);
+        }
     }
 
     newState.log.push(`--- Turno ${newState.turn}. Robas 5 cartas. ---`);
@@ -348,9 +373,12 @@ export const playCard = (state: CombatState, cardInstanceId: string, targetId: s
         return state;
     }
     
+    // Block UNPLAYABLE cards
+    if ((cardData.keywords || []).includes('UNPLAYABLE')) return state;
+
     const newState: CombatState = JSON.parse(JSON.stringify(state));
     const playerMutatable = newState.combatants.find(c => c.isPlayer)!;
-    
+
     // 1. Pagar coste y loguear
     playerMutatable.energy! -= actualCost;
     let cardDisplayName = cardData.name;
@@ -362,7 +390,7 @@ export const playCard = (state: CombatState, cardInstanceId: string, targetId: s
     // 2. Retirar la carta de la mano ANTES de comprobar efectos condicionales
     playerMutatable.hand = playerMutatable.hand!.filter(c => c.instanceId !== cardInstanceId);
 
-    let shouldExile = false;
+    let shouldExile = (cardData.keywords || []).includes('EXHAUST');
 
     // 3. Generar acciones basadas en el efecto
     const actualValue = (cardData.value || 0) + (affix?.valueModifier || 0);
@@ -377,9 +405,13 @@ export const playCard = (state: CombatState, cardInstanceId: string, targetId: s
     }
 
     switch (cardData.effectBase) {
-        case 'EFFECT_DAMAGE':
-            newState.actionQueue.push(createAction('DEAL_DAMAGE', player.id, targetId, actualValue + relicDmgBonus));
+        case 'EFFECT_DAMAGE': {
+            const hitCount = cardData.hits && cardData.hits > 1 ? cardData.hits : 1;
+            for (let h = 0; h < hitCount; h++) {
+                newState.actionQueue.push(createAction('DEAL_DAMAGE', player.id, targetId, actualValue + relicDmgBonus));
+            }
             break;
+        }
         case 'EFFECT_FIRE_2':
             newState.actionQueue.push(createAction('GAIN_RESOURCE', player.id, player.id, actualValue || 2, { resource: 'fuego' }));
             break;
@@ -432,6 +464,21 @@ export const playCard = (state: CombatState, cardInstanceId: string, targetId: s
         case 'EFFECT_DAMAGE_AND_BURN': {
             newState.actionQueue.push(createAction('DEAL_DAMAGE', player.id, targetId, actualValue + relicDmgBonus));
             newState.actionQueue.push(createAction('APPLY_STATUS', player.id, targetId, 2, { status: 'BURN' }));
+            break;
+        }
+        case 'EFFECT_DRAW_1':
+            newState.actionQueue.push(createAction('DRAW_CARDS', player.id, player.id, 1));
+            break;
+        case 'EFFECT_APPLY_STATUS': {
+            if (cardData.statusApply) {
+                const statusTarget = cardData.statusApply.target === 'SELF' ? player.id : targetId;
+                newState.actionQueue.push(createAction('APPLY_STATUS', player.id, statusTarget, actualValue || 1, { status: cardData.statusApply.status }));
+            }
+            break;
+        }
+        case 'EFFECT_DAMAGE_AND_PLASMA_LEAK': {
+            newState.actionQueue.push(createAction('DEAL_DAMAGE', player.id, targetId, actualValue + relicDmgBonus));
+            newState.actionQueue.push(createAction('APPLY_STATUS', player.id, targetId, 2, { status: 'PLASMA_LEAK' }));
             break;
         }
         case 'CREW_BASIC':
@@ -518,8 +565,29 @@ export const resolveTurn = (initialState: CombatState): CombatState => {
     const rng = new SeededRNG(initialState.rngSeed);
     rng.setState(initialState.rngState);
 
+    // 0. BURN_CURSE: curses in hand deal damage at end of player turn
+    let startState = initialState;
+    const playerForCurse = startState.combatants.find(c => c.isPlayer)!;
+    const curseDmg = (playerForCurse.hand || []).reduce((total, card) => {
+        const cd = getAllCards()[card.cardId];
+        return cd?.keywords?.includes('BURN_CURSE') ? total + 2 : total;
+    }, 0);
+    if (curseDmg > 0) {
+        const curseCombatants = JSON.parse(JSON.stringify(startState.combatants));
+        const cursePlayer = curseCombatants.find((c: Combatant) => c.isPlayer)!;
+        cursePlayer.hp = Math.max(0, cursePlayer.hp - curseDmg);
+        if (cursePlayer.hp <= 0) { cursePlayer.dead = true; cursePlayer.hp = 0; }
+        startState = {
+            ...startState, combatants: curseCombatants,
+            log: [...startState.log, `💀 Maldición: ${curseDmg} de daño por cartas de maldición en mano.`],
+        };
+        if (cursePlayer.dead) {
+            return { ...startState, phase: 'GAME_OVER', victory: false };
+        }
+    }
+
     // 1. Fase del enemigo (encolar sus acciones basadas en la intención)
-    let stateWithEnemyActions = processEnemyTurn(initialState, rng);
+    let stateWithEnemyActions = processEnemyTurn(startState, rng);
 
     // 2. Fase de resolución (procesar toda la cola, incluyendo acciones del enemigo)
     let resolvedState = resolveActionQueue(stateWithEnemyActions);

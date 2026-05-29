@@ -29,6 +29,8 @@ export interface MapData {
 }
 
 // --- Tipos de Cartas ---
+export type CardKeyword = 'EXHAUST' | 'RETAIN' | 'INNATE' | 'ETHEREAL' | 'UNPLAYABLE' | 'BURN_CURSE';
+
 export interface CardAffix {
   name: string;
   description: string;
@@ -43,15 +45,16 @@ export interface CardData {
   subtype?: string;
   cost: number;
   price: number; // Precio base en créditos para la tienda
-  rarity?: 'Common' | 'Uncommon' | 'Rare' | 'Epic' | 'Legendary' | 'Inicial';
+  rarity?: 'Common' | 'Uncommon' | 'Rare' | 'Epic' | 'Legendary' | 'Inicial' | 'Curse';
   faction?: 'Neutral' | string;
   description: string;
   effectBase?: string;
   value?: number; // Valor base para efectos (ej: 5 de daño)
+  hits?: number;  // Para multi-hit: número de veces que se aplica el daño
+  keywords?: CardKeyword[];
+  statusApply?: { target: 'SELF' | 'ENEMY'; status: StatusEffectId };
+  upgradedVersion?: Partial<Pick<CardData, 'cost' | 'value' | 'description' | 'hits'>>;
   possibleAffixes?: CardAffix[];
-  hasUpgrade?: boolean;
-  upgradeId?: string;
-  upgradeEffect?: string;
   image?: string; // URL de la imagen para retratos de tripulación
 }
 

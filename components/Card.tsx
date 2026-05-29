@@ -1,6 +1,6 @@
 // components/Card.tsx
 import React, { useState } from 'react';
-import { CardInstance } from '../types';
+import { CardInstance, CardKeyword } from '../types';
 import { RARITY_BORDER_COLORS, RARITY_GLOW_COLORS } from '../constants';
 import { getAllCards } from '../data';
 
@@ -33,6 +33,27 @@ export const Card: React.FC<CardProps> = ({ cardInstance, onClick, onDoubleClick
   const displayName = affix ? `${name} [${affix.name}]` : name;
   const displayDescription = affix ? `${cardData.description} ${affix.description}` : cardData.description;
 
+  const keywords = cardData.keywords || [];
+  const isUnplayable = keywords.includes('UNPLAYABLE');
+
+  const keywordStyles: Record<CardKeyword, string> = {
+    EXHAUST:    'bg-orange-700/80 text-orange-200',
+    RETAIN:     'bg-emerald-700/80 text-emerald-200',
+    INNATE:     'bg-yellow-700/80 text-yellow-200',
+    ETHEREAL:   'bg-violet-700/80 text-violet-200',
+    UNPLAYABLE: 'bg-gray-700/80 text-gray-400',
+    BURN_CURSE: 'bg-red-900/80 text-red-300',
+  };
+
+  const keywordLabels: Record<CardKeyword, string> = {
+    EXHAUST:    'Exhaust',
+    RETAIN:     'Retener',
+    INNATE:     'Innato',
+    ETHEREAL:   'Etéreo',
+    UNPLAYABLE: 'No jugable',
+    BURN_CURSE: 'Maldición',
+  };
+
   const typeBgColors = {
     Attack: 'bg-red-800/80',
     Skill: 'bg-blue-800/80',
@@ -53,7 +74,7 @@ export const Card: React.FC<CardProps> = ({ cardInstance, onClick, onDoubleClick
     transform ${!disabled && !isSmall ? 'hover:-translate-y-3 hover:scale-105' : ''}
     ${typeBgColors[type] || 'bg-gray-800/80'}
     ${rarityBorderColor}
-    ${disabled ? 'cursor-not-allowed' : 'cursor-pointer hover:brightness-110'}
+    ${disabled || isUnplayable ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:brightness-110'}
   `;
   
   const cardStyle = {
@@ -88,13 +109,23 @@ export const Card: React.FC<CardProps> = ({ cardInstance, onClick, onDoubleClick
             
             <p className="text-xs text-gray-300 leading-relaxed">{displayDescription}</p>
             
+            {keywords.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-1">
+                {keywords.map(kw => (
+                  <span key={kw} className={`text-[10px] px-1.5 py-0.5 rounded font-semibold uppercase tracking-wide ${keywordStyles[kw]}`}>
+                    {keywordLabels[kw]}
+                  </span>
+                ))}
+              </div>
+            )}
+
             {affix && (
               <div className="mt-2 pt-2 border-t border-cyan-500/30">
                 <p className="text-xs text-yellow-400 font-semibold">Modificador: {affix.name}</p>
                 <p className="text-xs text-gray-400">{affix.description}</p>
               </div>
             )}
-            
+
             <div className="flex justify-between items-center pt-2 border-t border-cyan-500/30">
               <span className="text-xs text-gray-400">Tipo: {type}</span>
               <span className="text-xs text-cyan-300 font-bold">Costo: {displayCost}</span>
@@ -124,6 +155,15 @@ export const Card: React.FC<CardProps> = ({ cardInstance, onClick, onDoubleClick
       {/* Pie de la Carta */}
       <div className="text-center">
         <p className={`font-bold uppercase text-cyan-400/80 ${isSmall ? 'text-xs' : 'text-xs'}`}>{type}</p>
+        {keywords.length > 0 && (
+          <div className="flex flex-wrap justify-center gap-0.5 mt-0.5">
+            {keywords.map(kw => (
+              <span key={kw} className={`text-[8px] px-1 py-0 rounded font-bold uppercase ${keywordStyles[kw]}`}>
+                {keywordLabels[kw]}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
