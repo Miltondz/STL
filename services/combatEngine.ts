@@ -11,12 +11,16 @@ import {
   isStunned,
   tickStatusesAtTurnEnd,
 } from './statusEngine';
+
 import {
+  ALL_RELICS,
   applyRelicsOnCombatStart,
   computeRelicTurnStartEffects,
   computeRelicTurnEndEffects,
   computeRelicCardDmgBonus,
   computeRelicBurnStacks,
+  computeRelicHBStacks,
+  computeRelicPLStacks,
   computeRelicDamageTakenEffects,
 } from './relicEngine';
 
@@ -83,6 +87,9 @@ const resolveAction = (state: CombatState, action: Action): CombatState => {
             if (damage > 0) {
                 target.hp -= damage;
                 newLog += ` El casco recibe ${damage} de daño.`;
+                if (target.isPlayer && (newState.relics || []).includes('REL_BULWARK_HEART')) {
+                    newState.relicState = { ...newState.relicState, REL_BULWARK_HEART: { hullDamageTaken: true } };
+                }
             }
 
             if (target.hp <= 0) {
@@ -105,8 +112,18 @@ const resolveAction = (state: CombatState, action: Action): CombatState => {
                 if (statusId === 'BURN' && source?.isPlayer) {
                     stacks = computeRelicBurnStacks(newState.relics, stacks);
                 }
+                if (statusId === 'HULL_BREACH' && source?.isPlayer) {
+                    stacks = computeRelicHBStacks(newState.relics, stacks);
+                }
+                if (statusId === 'PLASMA_LEAK' && source?.isPlayer) {
+                    stacks = computeRelicPLStacks(newState.relics, stacks);
+                }
                 target.statuses = applyStatus(target.statuses || [], statusId, stacks);
                 newLog = `${target.name} recibe ${STATUS_DEFS[statusId].name} (${stacks}).`;
+                if (statusId === 'OVERHEAT' && source?.isPlayer && (newState.relics || []).includes('REL_OVERRIDE_KEY')) {
+                    target.statuses = applyStatus(target.statuses, 'JAMMED', 1);
+                    extraLogs.push(`🗝️ Llave de Override: +1 Atasco.`);
+                }
             }
             break;
         }
@@ -240,20 +257,39 @@ const startPlayerTurn = (state: CombatState, rng: SeededRNG): CombatState => {
     let newState = { ...state, combatants: JSON.parse(JSON.stringify(state.combatants)), log: [...state.log] };
     const playerMutatable = newState.combatants.find(c => c.isPlayer)!;
 
-    // Discard hand: RETAIN stays, ETHEREAL exiles, rest discards
+    // Reset per-turn card counter
+    newState.cardsPlayedThisTurn = 0;
+
+    // Discard hand: RETAIN stays, ETHEREAL exiles (or discards with GHOST_PROTOCOL_RELIC), rest discards
     const retained: CardInstance[] = [];
     for (const card of playerMutatable.hand!) {
         const cd = getAllCards()[card.cardId];
         if (cd?.keywords?.includes('RETAIN')) {
             retained.push(card);
         } else if (cd?.keywords?.includes('ETHEREAL')) {
-            playerMutatable.exilePile!.push(card);
-            newState.log.push(`${cd.name} se esfuma (Etéreo).`);
+            if ((newState.relics || []).includes('REL_GHOST_PROTOCOL_RELIC')) {
+                playerMutatable.discardPile!.push(card);
+                newState.log.push(`${cd.name} regresa al descarte (Protocolo Espectral).`);
+            } else {
+                playerMutatable.exilePile!.push(card);
+                newState.log.push(`${cd.name} se esfuma (Etéreo).`);
+                if ((newState.relics || []).includes('REL_SCAVENGER_DRONE')) {
+                    playerMutatable.credits = (playerMutatable.credits || 0) + 1;
+                    newState.log.push(`🛸 Dron Carroñero: +1 Crédito.`);
+                }
+            }
         } else {
             playerMutatable.discardPile!.push(card);
         }
     }
     playerMutatable.hand = retained;
+
+    // DEFLECTOR_ARRAY: +2 shield per retained card
+    if (retained.length > 0 && (newState.relics || []).includes('REL_DEFLECTOR_ARRAY')) {
+        const shieldBonus = retained.length * (ALL_RELICS['REL_DEFLECTOR_ARRAY'].effect.value || 2);
+        playerMutatable.shield = Math.min(playerMutatable.maxShield, playerMutatable.shield + shieldBonus);
+        newState.log.push(`🔷 Matriz Deflectora: +${shieldBonus} escudo por ${retained.length} carta(s) retenida(s).`);
+    }
 
     playerMutatable.energy = playerMutatable.maxEnergy;
     playerMutatable.fuego = 0;
@@ -264,6 +300,16 @@ const startPlayerTurn = (state: CombatState, rng: SeededRNG): CombatState => {
     playerMutatable.energy! += relicTurnEffects.energyBonus;
     newState.relicState = relicTurnEffects.newRelicState;
     relicTurnEffects.logs.forEach(l => newState.log.push(l));
+
+    // FUSION_CORE: apply BURN to enemy at turn start
+    if (relicTurnEffects.enemyBurnStacks > 0) {
+        const enemy = newState.combatants.find(c => !c.isPlayer);
+        if (enemy && !enemy.dead) {
+            const stacks = computeRelicBurnStacks(newState.relics, relicTurnEffects.enemyBurnStacks);
+            enemy.statuses = applyStatus(enemy.statuses || [], 'BURN', stacks);
+            newState.log.push(`🔥 Núcleo de Fusión: ${stacks} Incendio al enemigo.`);
+        }
+    }
 
     const amount = 5 + relicTurnEffects.bonusDrawCount;
     for (let i = 0; i < amount; i++) {
@@ -344,6 +390,7 @@ export const createCombat = (playerState: PlayerState, enemyId: string, seed: nu
     log: [`Comienza el combate contra ${enemy.name}!`],
     relics: playerState.relics || [],
     relicState: {},
+    cardsPlayedThisTurn: 0,
   };
 
   initialState = applyRelicsOnCombatStart(initialState);
@@ -386,6 +433,7 @@ export const playCard = (state: CombatState, cardInstanceId: string, targetId: s
         cardDisplayName += ` [${affix.name}]`;
     }
     newState.log.push(`${player.name} juega ${cardDisplayName}.`);
+    newState.cardsPlayedThisTurn = (newState.cardsPlayedThisTurn || 0) + 1;
     
     // 2. Retirar la carta de la mano ANTES de comprobar efectos condicionales
     playerMutatable.hand = playerMutatable.hand!.filter(c => c.instanceId !== cardInstanceId);
@@ -407,8 +455,11 @@ export const playCard = (state: CombatState, cardInstanceId: string, targetId: s
     switch (cardData.effectBase) {
         case 'EFFECT_DAMAGE': {
             const hitCount = cardData.hits && cardData.hits > 1 ? cardData.hits : 1;
+            const hasChronometer = hitCount > 1 && (newState.relics || []).includes('REL_CHRONOMETER');
             for (let h = 0; h < hitCount; h++) {
-                newState.actionQueue.push(createAction('DEAL_DAMAGE', player.id, targetId, actualValue + relicDmgBonus));
+                let hitDmg = actualValue + relicDmgBonus;
+                if (hasChronometer && h === hitCount - 1) hitDmg = Math.floor(hitDmg * 1.5);
+                newState.actionQueue.push(createAction('DEAL_DAMAGE', player.id, targetId, hitDmg));
             }
             break;
         }
@@ -463,10 +514,15 @@ export const playCard = (state: CombatState, cardInstanceId: string, targetId: s
             break;
         case 'EFFECT_DAMAGE_AND_BURN': {
             const burnHitCount = cardData.hits && cardData.hits > 1 ? cardData.hits : 1;
+            const hasBurnChronometer = burnHitCount > 1 && (newState.relics || []).includes('REL_CHRONOMETER');
             for (let h = 0; h < burnHitCount; h++) {
-                newState.actionQueue.push(createAction('DEAL_DAMAGE', player.id, targetId, actualValue + relicDmgBonus));
+                let hitDmg = actualValue + relicDmgBonus;
+                if (hasBurnChronometer && h === burnHitCount - 1) hitDmg = Math.floor(hitDmg * 1.5);
+                newState.actionQueue.push(createAction('DEAL_DAMAGE', player.id, targetId, hitDmg));
             }
-            newState.actionQueue.push(createAction('APPLY_STATUS', player.id, targetId, 2, { status: 'BURN' }));
+            const extraBurn = (newState.relics || []).includes('REL_PYRO_INJECTOR') ? 1 : 0;
+            if (extraBurn) newState.log.push(`💥 Inyector Pirótico: +1 Incendio extra.`);
+            newState.actionQueue.push(createAction('APPLY_STATUS', player.id, targetId, 2 + extraBurn, { status: 'BURN' }));
             break;
         }
         case 'EFFECT_DRAW_1':
@@ -514,8 +570,11 @@ export const playCard = (state: CombatState, cardInstanceId: string, targetId: s
         }
         case 'EFFECT_DAMAGE_AND_PLASMA_LEAK': {
             const plHitCount = cardData.hits && cardData.hits > 1 ? cardData.hits : 1;
+            const hasPlChronometer = plHitCount > 1 && (newState.relics || []).includes('REL_CHRONOMETER');
             for (let h = 0; h < plHitCount; h++) {
-                newState.actionQueue.push(createAction('DEAL_DAMAGE', player.id, targetId, actualValue + relicDmgBonus));
+                let hitDmg = actualValue + relicDmgBonus;
+                if (hasPlChronometer && h === plHitCount - 1) hitDmg = Math.floor(hitDmg * 1.5);
+                newState.actionQueue.push(createAction('DEAL_DAMAGE', player.id, targetId, hitDmg));
             }
             newState.actionQueue.push(createAction('APPLY_STATUS', player.id, targetId, 2, { status: 'PLASMA_LEAK' }));
             break;
@@ -534,15 +593,26 @@ export const playCard = (state: CombatState, cardInstanceId: string, targetId: s
             break;
     }
 
-    // 4. Mover la carta jugada a la pila correspondiente
+    // 4. VOID_LEDGER: every 3 cards played this turn, draw 1
+    const ct = newState.cardsPlayedThisTurn || 0;
+    if (ct > 0 && ct % 3 === 0 && (newState.relics || []).includes('REL_VOID_LEDGER')) {
+        newState.actionQueue.push(createAction('DRAW_CARDS', player.id, player.id, 1));
+        newState.log.push(`📒 Libro del Vacío: ${ct} cartas jugadas — roba 1.`);
+    }
+
+    // 5. Mover la carta jugada a la pila correspondiente
     if (shouldExile) {
         playerMutatable.exilePile!.push(cardInstance);
         newState.log.push(`${cardData.name} es exiliada.`);
+        if ((newState.relics || []).includes('REL_SCAVENGER_DRONE')) {
+            playerMutatable.credits = (playerMutatable.credits || 0) + 1;
+            newState.log.push(`🛸 Dron Carroñero: +1 Crédito.`);
+        }
     } else {
         playerMutatable.discardPile!.push(cardInstance);
     }
 
-    // 5. Resolver las acciones de la carta jugada inmediatamente
+    // 6. Resolver las acciones de la carta jugada inmediatamente
     return resolveActionQueue(newState);
 }
 
@@ -639,14 +709,20 @@ export const resolveTurn = (initialState: CombatState): CombatState => {
         resolvedState = tickStatusesAtTurnEnd(resolvedState);
     }
 
-    // 4. Relic turn-end effects (e.g. black box hand-empty check)
+    // 4. Relic turn-end effects (e.g. black box hand-empty check, aegis protocol)
     if (resolvedState.phase !== 'GAME_OVER') {
         const playerForRelics = resolvedState.combatants.find(c => c.isPlayer)!;
         const handIsEmpty = (playerForRelics.hand?.length || 0) === 0;
-        const { newRelicState, logs } = computeRelicTurnEndEffects(
-            resolvedState.relics, resolvedState.relicState, handIsEmpty
+        const { newRelicState, logs, hullRepair } = computeRelicTurnEndEffects(
+            resolvedState.relics, resolvedState.relicState, handIsEmpty, playerForRelics.shield
         );
         resolvedState = { ...resolvedState, relicState: newRelicState, log: [...resolvedState.log, ...logs] };
+        if (hullRepair > 0) {
+            const combatants = JSON.parse(JSON.stringify(resolvedState.combatants));
+            const p = combatants.find((c: any) => c.isPlayer);
+            if (p) p.hp = Math.min(p.maxHp, p.hp + hullRepair);
+            resolvedState = { ...resolvedState, combatants };
+        }
     }
 
     // 5. Fase de fin de turno (si el combate no ha terminado)

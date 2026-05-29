@@ -434,11 +434,11 @@ export const ALL_CARDS: Record<string, CardData> = {
         price: 22,
         rarity: 'Uncommon',
         faction: 'Hacktivistas',
-        description: 'Aplica Atasco al enemigo: no puede atacar el próximo turno.',
+        description: 'Aplica Atasco al enemigo: sus escudos son 25% menos efectivos por 1 turno.',
         effectBase: 'EFFECT_APPLY_STATUS',
         value: 1,
         statusApply: { target: 'ENEMY', status: 'JAMMED' },
-        upgradedVersion: { cost: 0, description: 'Aplica Atasco al enemigo: no puede atacar el próximo turno.' },
+        upgradedVersion: { cost: 0, description: 'Aplica Atasco al enemigo: sus escudos son 25% menos efectivos. (Costo 0)' },
         image: 'https://i.ibb.co/DPpZ9LtD/equipos-00-placeholder.jpg',
     },
     'ATTACK_PRECISION_VOLLEY': {

@@ -1,7 +1,9 @@
 // services/relicEngine.ts
 import { CombatState, PlayerState, RelicData } from '../types';
+import { applyStatus } from './statusEngine';
 
 export const ALL_RELICS: Record<string, RelicData> = {
+  // --- Relics originales ---
   REL_NUCLEAR_BATTERY: {
     id: 'REL_NUCLEAR_BATTERY', name: 'Batería Nuclear', rarity: 'Common', icon: '☢️',
     description: '+1 Energía al inicio de cada turno.',
@@ -64,6 +66,80 @@ export const ALL_RELICS: Record<string, RelicData> = {
     description: 'La primera vez que entras a una tienda, una carta al azar es gratis.',
     trigger: 'SHOP_ENTERED', effect: { kind: 'ONE_FREE_SHOP_CARD' }, oneShot: true,
   },
+
+  // --- Set "Brasas del Vacío" ---
+  REL_FUSION_CORE: {
+    id: 'REL_FUSION_CORE', name: 'Núcleo de Fusión', rarity: 'Uncommon', icon: '🔥',
+    description: 'Al inicio de cada turno, aplica 1 de Incendio al enemigo.',
+    flavorText: 'El calor es inevitable. Úsalo.',
+    trigger: 'TURN_START', effect: { kind: 'FUSION_CORE_BURN', value: 1 },
+  },
+  REL_PYRO_INJECTOR: {
+    id: 'REL_PYRO_INJECTOR', name: 'Inyector Pirótico', rarity: 'Rare', icon: '💥',
+    description: 'Las cartas de Ataque que aplican Incendio añaden +1 pila extra.',
+    flavorText: 'Más calor, más caos.',
+    trigger: 'PASSIVE', effect: { kind: 'PYRO_INJECTOR_BONUS', value: 1 },
+  },
+  REL_PLASMA_REGULATOR: {
+    id: 'REL_PLASMA_REGULATOR', name: 'Regulador de Plasma', rarity: 'Rare', icon: '🌀',
+    description: 'Cada vez que aplicas Fuga de Plasma, añades +1 pila extra.',
+    flavorText: 'El plasma no perdona fugas.',
+    trigger: 'PASSIVE', effect: { kind: 'PLASMA_REGULATOR_BONUS', value: 1 },
+  },
+  REL_AEGIS_PROTOCOL: {
+    id: 'REL_AEGIS_PROTOCOL', name: 'Protocolo Égida', rarity: 'Uncommon', icon: '🛡️',
+    description: 'Al fin de turno, si tienes 10+ escudos, repara 2 de casco.',
+    flavorText: 'Los escudos son el primer escalpelo.',
+    trigger: 'TURN_END', effect: { kind: 'AEGIS_PROTOCOL_HEAL', value: 2 },
+  },
+  REL_DEFLECTOR_ARRAY: {
+    id: 'REL_DEFLECTOR_ARRAY', name: 'Matriz Deflectora', rarity: 'Rare', icon: '🔷',
+    description: 'Por cada carta Retenida al inicio de turno, ganas +2 escudos.',
+    flavorText: 'Cada recurso guardado es un golpe absorbido.',
+    trigger: 'PASSIVE', effect: { kind: 'DEFLECTOR_ARRAY_SHIELD', value: 2 },
+  },
+  REL_BULWARK_HEART: {
+    id: 'REL_BULWARK_HEART', name: 'Corazón Bastión', rarity: 'Boss', icon: '💠',
+    description: 'Si no recibes daño al casco en un combate, repara 5 al ganar.',
+    flavorText: 'La invulnerabilidad tiene su recompensa.',
+    trigger: 'COMBAT_END_VICTORY', effect: { kind: 'BULWARK_HEART_REPAIR', value: 5 },
+  },
+  REL_SABOTAGE_KIT: {
+    id: 'REL_SABOTAGE_KIT', name: 'Kit de Sabotaje', rarity: 'Uncommon', icon: '🔧',
+    description: 'Cada vez que aplicas Brecha de Casco, añades +1 pila extra.',
+    flavorText: 'Una fisura bien colocada lo cambia todo.',
+    trigger: 'PASSIVE', effect: { kind: 'SABOTAGE_KIT_HB_BONUS', value: 1 },
+  },
+  REL_OVERRIDE_KEY: {
+    id: 'REL_OVERRIDE_KEY', name: 'Llave de Override', rarity: 'Rare', icon: '🗝️',
+    description: 'Aplicar Sobrecalentamiento también aplica 1 de Atasco al mismo objetivo.',
+    flavorText: 'Cuando los sistemas fallan, también los escudos.',
+    trigger: 'PASSIVE', effect: { kind: 'OVERRIDE_KEY_JAMMED' },
+  },
+  REL_CHRONOMETER: {
+    id: 'REL_CHRONOMETER', name: 'Cronómetro de Impacto', rarity: 'Boss', icon: '⏱️',
+    description: 'El último impacto de cartas multi-golpe inflige ×1.5 de daño.',
+    flavorText: 'El golpe final siempre duele más.',
+    trigger: 'PASSIVE', effect: { kind: 'CHRONOMETER_LAST_HIT' },
+  },
+  REL_SCAVENGER_DRONE: {
+    id: 'REL_SCAVENGER_DRONE', name: 'Dron Carroñero', rarity: 'Uncommon', icon: '🛸',
+    description: 'Cada vez que exilias una carta en combate, ganas +1 Crédito.',
+    flavorText: 'Los desperdicios de unos son los beneficios de otros.',
+    trigger: 'PASSIVE', effect: { kind: 'SCAVENGER_DRONE_CREDIT', value: 1 },
+  },
+  REL_VOID_LEDGER: {
+    id: 'REL_VOID_LEDGER', name: 'Libro del Vacío', rarity: 'Rare', icon: '📒',
+    description: 'Cada 3 cartas jugadas en un turno, roba 1 carta.',
+    flavorText: 'El vacío lleva la cuenta.',
+    trigger: 'PASSIVE', effect: { kind: 'VOID_LEDGER_DRAW', value: 3 },
+  },
+  REL_GHOST_PROTOCOL_RELIC: {
+    id: 'REL_GHOST_PROTOCOL_RELIC', name: 'Protocolo Espectral', rarity: 'Boss', icon: '👤',
+    description: 'Las cartas Etéreas van al descarte en lugar de ser exiliadas.',
+    flavorText: 'Lo etéreo puede volverse tangible.',
+    trigger: 'PASSIVE', effect: { kind: 'GHOST_PROTOCOL_RELIC' },
+  },
 };
 
 // --- In-combat triggers ---
@@ -75,6 +151,7 @@ export const applyRelicsOnCombatStart = (state: CombatState): CombatState => {
   const combatants = JSON.parse(JSON.stringify(state.combatants));
   const player = combatants.find((c: any) => c.isPlayer);
   const logs: string[] = [];
+  let relicState = { ...(state.relicState || {}) };
 
   if (player && relics.includes('REL_PILOT_REFLEXES')) {
     const bonus = ALL_RELICS['REL_PILOT_REFLEXES'].effect.value || 4;
@@ -82,18 +159,24 @@ export const applyRelicsOnCombatStart = (state: CombatState): CombatState => {
     logs.push(`🎯 Reflejos de Piloto: +${bonus} escudo al inicio del combate.`);
   }
 
-  return { ...state, combatants, log: [...state.log, ...logs] };
+  if (relics.includes('REL_BULWARK_HEART')) {
+    relicState = { ...relicState, REL_BULWARK_HEART: { hullDamageTaken: false } };
+  }
+
+  return { ...state, combatants, relicState, log: [...state.log, ...logs] };
 };
 
 export const computeRelicTurnStartEffects = (state: CombatState): {
   bonusDrawCount: number;
   energyBonus: number;
+  enemyBurnStacks: number;
   newRelicState: NonNullable<CombatState['relicState']>;
   logs: string[];
 } => {
   const relics = state.relics || [];
   let bonusDrawCount = 0;
   let energyBonus = 0;
+  let enemyBurnStacks = 0;
   let newRelicState = { ...(state.relicState || {}) };
   const logs: string[] = [];
 
@@ -103,19 +186,16 @@ export const computeRelicTurnStartEffects = (state: CombatState): {
     logs.push(`☢️ Batería Nuclear: +${bonus} Energía.`);
   }
 
-  // Reset per-turn flag
   if (relics.includes('REL_AMMO_OVERLOAD')) {
     newRelicState = { ...newRelicState, REL_AMMO_OVERLOAD: { used: false } };
   }
 
-  // +1 draw on turn 1 only
   if (relics.includes('REL_HEGEMONY_RELIC') && state.turn === 1) {
     const bonus = ALL_RELICS['REL_HEGEMONY_RELIC'].effect.value || 1;
     bonusDrawCount += bonus;
     logs.push(`🏛️ Reliquia de la Hegemonía: +${bonus} carta extra.`);
   }
 
-  // Bonus draw if black box flagged last turn
   if (relics.includes('REL_BLACK_BOX') && newRelicState.REL_BLACK_BOX?.used) {
     const bonus = ALL_RELICS['REL_BLACK_BOX'].effect.value || 1;
     bonusDrawCount += bonus;
@@ -123,23 +203,34 @@ export const computeRelicTurnStartEffects = (state: CombatState): {
     logs.push(`📦 Caja Negra: +${bonus} carta extra.`);
   }
 
-  return { bonusDrawCount, energyBonus, newRelicState, logs };
+  if (relics.includes('REL_FUSION_CORE')) {
+    enemyBurnStacks = ALL_RELICS['REL_FUSION_CORE'].effect.value || 1;
+  }
+
+  return { bonusDrawCount, energyBonus, enemyBurnStacks, newRelicState, logs };
 };
 
 export const computeRelicTurnEndEffects = (
   relics: string[] | undefined,
   relicState: CombatState['relicState'],
-  handIsEmpty: boolean
-): { newRelicState: NonNullable<CombatState['relicState']>; logs: string[] } => {
+  handIsEmpty: boolean,
+  playerShield: number
+): { newRelicState: NonNullable<CombatState['relicState']>; logs: string[]; hullRepair: number } => {
   let newRelicState = { ...(relicState || {}) };
   const logs: string[] = [];
+  let hullRepair = 0;
 
   if ((relics || []).includes('REL_BLACK_BOX') && handIsEmpty) {
     newRelicState = { ...newRelicState, REL_BLACK_BOX: { used: true } };
     logs.push(`📦 Caja Negra: mano vacía — robarás 1 carta extra.`);
   }
 
-  return { newRelicState, logs };
+  if ((relics || []).includes('REL_AEGIS_PROTOCOL') && playerShield >= 10) {
+    hullRepair = ALL_RELICS['REL_AEGIS_PROTOCOL'].effect.value || 2;
+    logs.push(`🛡️ Protocolo Égida: ${playerShield} escudos — repara ${hullRepair} casco.`);
+  }
+
+  return { newRelicState, logs, hullRepair };
 };
 
 export const computeRelicCardDmgBonus = (
@@ -161,6 +252,16 @@ export const computeRelicCardDmgBonus = (
 
 export const computeRelicBurnStacks = (relics: string[] | undefined, stacks: number): number => {
   if ((relics || []).includes('REL_ION_CAPACITOR')) return stacks * 2;
+  return stacks;
+};
+
+export const computeRelicHBStacks = (relics: string[] | undefined, stacks: number): number => {
+  if ((relics || []).includes('REL_SABOTAGE_KIT')) return stacks + (ALL_RELICS['REL_SABOTAGE_KIT'].effect.value || 1);
+  return stacks;
+};
+
+export const computeRelicPLStacks = (relics: string[] | undefined, stacks: number): number => {
+  if ((relics || []).includes('REL_PLASMA_REGULATOR')) return stacks + (ALL_RELICS['REL_PLASMA_REGULATOR'].effect.value || 1);
   return stacks;
 };
 
@@ -195,14 +296,28 @@ export const computeRelicDamageTakenEffects = (
 // --- Out-of-combat triggers ---
 
 export const applyRelicsOnCombatVictory = (
-  playerState: PlayerState
+  playerState: PlayerState,
+  combatRelicState?: CombatState['relicState']
 ): { playerState: PlayerState; logs: string[] } => {
   const logs: string[] = [];
-  if (!(playerState.relics || []).includes('REL_PIRATE_FLAG')) return { playerState, logs };
+  let state = playerState;
 
-  const bonus = ALL_RELICS['REL_PIRATE_FLAG'].effect.value || 3;
-  logs.push(`🏴‍☠️ Bandera Pirata: +${bonus} créditos.`);
-  return { playerState: { ...playerState, credits: playerState.credits + bonus }, logs };
+  if ((state.relics || []).includes('REL_PIRATE_FLAG')) {
+    const bonus = ALL_RELICS['REL_PIRATE_FLAG'].effect.value || 3;
+    logs.push(`🏴‍☠️ Bandera Pirata: +${bonus} créditos.`);
+    state = { ...state, credits: state.credits + bonus };
+  }
+
+  if ((state.relics || []).includes('REL_BULWARK_HEART') && combatRelicState) {
+    const bwState = combatRelicState['REL_BULWARK_HEART'];
+    if (bwState && bwState.hullDamageTaken === false) {
+      const repair = ALL_RELICS['REL_BULWARK_HEART'].effect.value || 5;
+      logs.push(`💠 Corazón Bastión: sin daño al casco — repara ${repair}.`);
+      state = { ...state, hull: Math.min(state.maxHull, state.hull + repair) };
+    }
+  }
+
+  return { playerState: state, logs };
 };
 
 export const computeRelicNodeFuelCost = (

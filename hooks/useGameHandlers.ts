@@ -277,8 +277,8 @@ export const useGameHandlers = () => {
         newState.credits += creditsGained;
         addLog(`Recuperas ${creditsGained} créditos de los restos.`);
 
-        // REL_PIRATE_FLAG: bonus credits on victory
-        const relicVictoryResult = applyRelicsOnCombatVictory(newState);
+        // REL_PIRATE_FLAG + REL_BULWARK_HEART: bonus on victory
+        const relicVictoryResult = applyRelicsOnCombatVictory(newState, finalState.relicState);
         if (relicVictoryResult.playerState !== newState) {
           newState = relicVictoryResult.playerState;
           relicVictoryResult.logs.forEach(l => addLog(l));

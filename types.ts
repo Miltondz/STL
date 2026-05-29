@@ -236,7 +236,8 @@ export interface CombatState {
   log: string[];
   victory?: boolean;
   relics?: string[];
-  relicState?: { [relicId: string]: { used?: boolean } };
+  relicState?: { [relicId: string]: { used?: boolean; hullDamageTaken?: boolean } };
+  cardsPlayedThisTurn?: number;
 }
 
 
