@@ -110,6 +110,25 @@ export interface PlayerState {
   bonusEnergy?: number; // Extra energy per combat, awarded by level-up ENERGY reward
 }
 
+// --- Efectos de Estado ---
+
+export type StatusEffectId =
+  | 'BURN'
+  | 'PLASMA_LEAK'
+  | 'OVERHEAT'
+  | 'HULL_BREACH'
+  | 'JAMMED'
+  | 'EMP'
+  | 'OVERCHARGE'
+  | 'STEALTH';
+
+export type StatusStackBehavior = 'STACK' | 'REFRESH_DURATION' | 'MAX';
+
+export interface StatusEffect {
+  id: StatusEffectId;
+  stacks: number; // intensidad O turnos restantes según el efecto
+}
+
 // --- Tipos del Motor de Combate ---
 
 // Intenciones del enemigo
@@ -147,17 +166,20 @@ export interface Combatant {
   pattern?: string[];
   patternIndex?: number;
   attackBuff?: number;
+  // Efectos de estado activos
+  statuses?: StatusEffect[];
 }
 
 
 // 3.3 Action (Entrada en la Cola de Acciones)
-export type ActionType = 
-    'DEAL_DAMAGE' 
-  | 'RECHARGE_SHIELD' 
+export type ActionType =
+    'DEAL_DAMAGE'
+  | 'RECHARGE_SHIELD'
   | 'REPAIR_HULL'
   | 'GAIN_ENERGY'
-  | 'GAIN_RESOURCE' // Nueva acción
-  | 'DRAW_CARDS';   // Nueva acción
+  | 'GAIN_RESOURCE'
+  | 'DRAW_CARDS'
+  | 'APPLY_STATUS';
 
 export interface Action {
   id: string; // id único para la acción
@@ -167,6 +189,7 @@ export interface Action {
   value?: number;
   meta?: {
       resource?: 'fuego' | 'maniobra' | 'credito';
+      status?: StatusEffectId;
       [key: string]: any;
   };
 }

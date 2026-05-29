@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useState, useMemo } from 'react';
-import { CombatState, CardInstance, EnemyIntent, Combatant, Node } from '../types';
+import { CombatState, CardInstance, EnemyIntent, Combatant, Node, StatusEffect } from '../types';
+import { STATUS_DEFS } from '../services/statusEngine';
 import { Card } from './Card';
 import { getAllCards } from '../data';
 import { ParticleBurst } from './ParticleBurst';
@@ -86,6 +87,34 @@ const IntentIcon: React.FC<{ intent: EnemyIntent }> = ({ intent }) => {
     );
 };
 
+
+const StatusBadge: React.FC<{ status: StatusEffect }> = ({ status }) => {
+    const def = STATUS_DEFS[status.id];
+    if (!def) return null;
+    return (
+        <div
+            className={`relative flex items-center justify-center w-7 h-7 rounded-full border cursor-help
+                ${def.isDebuff ? 'bg-red-950/80 border-red-500/50' : 'bg-blue-950/80 border-blue-400/50'}`}
+            title={`${def.name}: ${def.description(status.stacks)}`}
+        >
+            <span className="text-xs leading-none select-none">{def.icon}</span>
+            <span className="absolute -bottom-0.5 -right-0.5 text-xs font-orbitron font-bold text-white
+                             bg-gray-900 rounded-full w-3.5 h-3.5 flex items-center justify-center
+                             border border-gray-700 leading-none">
+                {status.stacks}
+            </span>
+        </div>
+    );
+};
+
+const StatusBar: React.FC<{ statuses?: StatusEffect[] }> = ({ statuses }) => {
+    if (!statuses?.length) return null;
+    return (
+        <div className="flex flex-wrap gap-1 justify-center mt-1.5">
+            {statuses.map((s) => <StatusBadge key={s.id} status={s} />)}
+        </div>
+    );
+};
 
 const patternIntentInfo = (action: string): { icon: string; color: string } => {
     switch (action) {
@@ -471,6 +500,7 @@ export const CombatInterface: React.FC<CombatInterfaceProps> = ({ combatState, o
                 <span className="text-xs w-12 text-right">{player.shield}/{player.maxShield}</span>
               </div>
             </div>
+            <StatusBar statuses={player.statuses} />
           </div>
         </div>
 
@@ -534,6 +564,7 @@ export const CombatInterface: React.FC<CombatInterfaceProps> = ({ combatState, o
                 <span className="text-xs w-12 text-right">{enemy.shield}/{enemy.maxShield}</span>
               </div>
             </div>
+            <StatusBar statuses={enemy.statuses} />
           </div>
         </div>
       </div>

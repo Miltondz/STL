@@ -1,7 +1,16 @@
 // services/combatEngine.ts
-import { PlayerState, CombatState, Action, ActionType, Combatant, CardInstance, EnemyIntent } from '../types';
+import { PlayerState, CombatState, Action, ActionType, Combatant, CardInstance, EnemyIntent, StatusEffectId } from '../types';
 import { getEnemyTemplates, getAllCards } from '../data';
 import { SeededRNG } from './rng';
+import {
+  STATUS_DEFS,
+  applyStatus,
+  computeOutgoingDamage,
+  computeIncomingDamage,
+  computeIncomingShield,
+  isStunned,
+  tickStatusesAtTurnEnd,
+} from './statusEngine';
 
 // --- Datos del Juego (lazy — llamar dentro de funciones para respetar carga de JSON) ---
 
@@ -40,6 +49,9 @@ const resolveAction = (state: CombatState, action: Action): CombatState => {
     switch (action.type) {
         case 'DEAL_DAMAGE': {
             let damage = action.value || 0;
+            // Status modifiers: outgoing (OVERHEAT, OVERCHARGE on source) + incoming (HULL_BREACH, STEALTH on target)
+            damage = computeOutgoingDamage(source, damage);
+            damage = computeIncomingDamage(target, damage);
             newLog = `${source.name} ataca a ${target.name}.`;
 
             const shieldDamage = Math.min(target.shield, damage);
@@ -62,9 +74,18 @@ const resolveAction = (state: CombatState, action: Action): CombatState => {
             break;
         }
         case 'RECHARGE_SHIELD': {
-            const amount = action.value || 0;
+            const amount = computeIncomingShield(target, action.value || 0);
             target.shield = Math.min(target.maxShield, target.shield + amount);
             newLog = `${source.name} gana ${amount} de escudo.`;
+            break;
+        }
+        case 'APPLY_STATUS': {
+            const statusId = action.meta?.status as StatusEffectId | undefined;
+            const stacks = action.value || 1;
+            if (statusId && STATUS_DEFS[statusId]) {
+                target.statuses = applyStatus(target.statuses || [], statusId, stacks);
+                newLog = `${target.name} recibe ${STATUS_DEFS[statusId].name} (${stacks}).`;
+            }
             break;
         }
         case 'REPAIR_HULL': {
@@ -345,6 +366,29 @@ export const playCard = (state: CombatState, cardInstanceId: string, targetId: s
         case 'EFFECT_ENERGY_1':
              newState.actionQueue.push(createAction('GAIN_ENERGY', player.id, player.id, actualValue || 1));
              break;
+        case 'EFFECT_APPLY_BURN':
+            newState.actionQueue.push(createAction('APPLY_STATUS', player.id, targetId, actualValue || 2, { status: 'BURN' }));
+            break;
+        case 'EFFECT_APPLY_PLASMA_LEAK':
+            newState.actionQueue.push(createAction('APPLY_STATUS', player.id, targetId, actualValue || 2, { status: 'PLASMA_LEAK' }));
+            break;
+        case 'EFFECT_APPLY_OVERHEAT':
+            newState.actionQueue.push(createAction('APPLY_STATUS', player.id, targetId, actualValue || 2, { status: 'OVERHEAT' }));
+            break;
+        case 'EFFECT_APPLY_HULL_BREACH':
+            newState.actionQueue.push(createAction('APPLY_STATUS', player.id, targetId, actualValue || 2, { status: 'HULL_BREACH' }));
+            break;
+        case 'EFFECT_APPLY_EMP':
+            newState.actionQueue.push(createAction('APPLY_STATUS', player.id, targetId, 1, { status: 'EMP' }));
+            break;
+        case 'EFFECT_APPLY_OVERCHARGE':
+            newState.actionQueue.push(createAction('APPLY_STATUS', player.id, player.id, actualValue || 2, { status: 'OVERCHARGE' }));
+            break;
+        case 'EFFECT_DAMAGE_AND_BURN': {
+            newState.actionQueue.push(createAction('DEAL_DAMAGE', player.id, targetId, actualValue));
+            newState.actionQueue.push(createAction('APPLY_STATUS', player.id, targetId, 2, { status: 'BURN' }));
+            break;
+        }
         case 'CREW_BASIC':
             newState.log.push(`El ${cardData.name} es tripulación y no tiene efecto en combate.`);
             playerMutatable.energy! += actualCost;
@@ -377,7 +421,15 @@ const processEnemyTurn = (state: CombatState, rng: SeededRNG): CombatState => {
     const enemy = newState.combatants.find(c => !c.isPlayer)!;
 
     if (enemy.dead || player.dead || !enemy.intent) return state;
-    
+
+    // EMP: enemy skips turn
+    if (isStunned(enemy)) {
+        newState.log.push(`${enemy.name} está bajo Pulso EMP. Pierde su turno.`);
+        enemy.patternIndex = ((enemy.patternIndex || 0) + 1) % (enemy.pattern?.length || 1);
+        newState.phase = 'RESOLUTION';
+        return newState;
+    }
+
     const intent = enemy.intent;
 
     switch (intent.type) {
@@ -427,7 +479,12 @@ export const resolveTurn = (initialState: CombatState): CombatState => {
     // 2. Fase de resolución (procesar toda la cola, incluyendo acciones del enemigo)
     let resolvedState = resolveActionQueue(stateWithEnemyActions);
     
-    // 3. Fase de fin de turno (si el combate no ha terminado)
+    // 3. Tick de estados al fin de turno
+    if (resolvedState.phase !== 'GAME_OVER') {
+        resolvedState = tickStatusesAtTurnEnd(resolvedState);
+    }
+
+    // 4. Fase de fin de turno (si el combate no ha terminado)
     if (resolvedState.phase !== 'GAME_OVER') {
         resolvedState.turn += 1;
         resolvedState = startPlayerTurn(resolvedState, rng);
