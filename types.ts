@@ -139,6 +139,7 @@ export interface RelicData {
   trigger: RelicTrigger;
   effect: { kind: string; value?: number };
   oneShot?: boolean;
+  image?: string;
 }
 
 // --- Efectos de Estado ---
