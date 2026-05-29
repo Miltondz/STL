@@ -193,39 +193,32 @@ const setEnemyIntent = (state: CombatState, rng: SeededRNG): CombatState => {
 
 // Prepara el inicio de un turno para el jugador.
 const startPlayerTurn = (state: CombatState, rng: SeededRNG): CombatState => {
-    let newState = { ...state, combatants: JSON.parse(JSON.stringify(state.combatants)) };
+    // Spread log array to avoid mutating the input state reference
+    let newState = { ...state, combatants: JSON.parse(JSON.stringify(state.combatants)), log: [...state.log] };
     const playerMutatable = newState.combatants.find(c => c.isPlayer)!;
-    
+
     playerMutatable.discardPile = [...playerMutatable.discardPile!, ...playerMutatable.hand!];
     playerMutatable.hand = [];
-    
+
     playerMutatable.energy = playerMutatable.maxEnergy;
     playerMutatable.fuego = 0;
     playerMutatable.maniobra = 0;
 
-    let drawnState = state;
     const amount = 5;
-    if (playerMutatable.isPlayer) {
-        for (let i = 0; i < amount; i++) {
-            if (playerMutatable.drawPile!.length === 0) {
-                if (playerMutatable.discardPile!.length === 0) {
-                    break; 
-                }
-                drawnState.log.push(`${playerMutatable.name} baraja su pila de descarte.`);
-                playerMutatable.drawPile = shuffleArray(playerMutatable.discardPile!, rng);
-                playerMutatable.discardPile = [];
-            }
-            const card = playerMutatable.drawPile!.pop();
-            if (card) {
-                playerMutatable.hand!.push(card);
-            }
+    for (let i = 0; i < amount; i++) {
+        if (playerMutatable.drawPile!.length === 0) {
+            if (playerMutatable.discardPile!.length === 0) break;
+            newState.log.push(`${playerMutatable.name} baraja su pila de descarte.`);
+            playerMutatable.drawPile = shuffleArray(playerMutatable.discardPile!, rng);
+            playerMutatable.discardPile = [];
         }
+        const card = playerMutatable.drawPile!.pop();
+        if (card) playerMutatable.hand!.push(card);
     }
 
-    newState.log.push(`--- Comienza el Turno ${newState.turn}. Robas 5 cartas. ---`);
+    newState.log.push(`--- Turno ${newState.turn}. Robas 5 cartas. ---`);
     newState.phase = 'PLAYER_INPUT';
 
-    // Establece la intención del enemigo para el próximo turno.
     return setEnemyIntent(newState, rng);
 }
 

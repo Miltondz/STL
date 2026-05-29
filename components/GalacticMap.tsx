@@ -1,7 +1,6 @@
 import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { Node as NodeTypeData, NodeType, PlayerState } from '../types';
 import { NodeIcon } from './Icons';
-import { NODE_COLORS } from '../constants';
 import { getAllShips } from '../data';
 
 interface GalacticMapProps {
@@ -427,24 +426,6 @@ export const GalacticMap: React.FC<GalacticMapProps> = ({ nodes, currentNodeId, 
   const viewBoxWidth = (maxX - minX) + (PADDING * 2);
   const viewBoxHeight = (maxY - minY) + (PADDING * 2);
 
-  // Get container dimensions for coordinate transformation
-  const [containerSize, setContainerSize] = React.useState({ w: 0, h: 0 });
-
-  useEffect(() => {
-    if (mapContainerRef.current) {
-      const updateSize = () => {
-        setContainerSize({
-          w: mapContainerRef.current!.clientWidth,
-          h: mapContainerRef.current!.clientHeight
-        });
-      };
-      updateSize();
-      const ro = new ResizeObserver(updateSize);
-      ro.observe(mapContainerRef.current);
-      return () => ro.disconnect();
-    }
-  }, []);
-
   return (
     <div 
       ref={mapContainerRef} 
@@ -511,7 +492,7 @@ export const GalacticMap: React.FC<GalacticMapProps> = ({ nodes, currentNodeId, 
                 strokeWidth="0.1"
                 strokeOpacity={strokeOpacity}
                 strokeDasharray={strokeDasharray}
-                className="transition-all duration-500"
+                className="transition-opacity duration-500"
                 style={isPathVisited ? { filter: 'drop-shadow(0 0 2px #34d399)' } : {}}
               />
             );

@@ -46,28 +46,19 @@ function fixTextEncoding(text: string): string {
     .replace(/┬┐/g, '¿')
     .replace(/┬░/g, '°')
     .replace(/┬¬/g, '¬')
-    .replace(/┬¡/g, '¡')
-    .replace(/┬┐/g, '¿')
-    // Casos específicos que viste
-    .replace(/├¡/g, 'í')  // Para "Hegemonía"
-    .replace(/├®/g, 'é')  // Para "décadas"
     // Otros caracteres comunes
     .replace(/├ç/g, 'Ç')
-    .replace(/├æ/g, 'Æ')
     .replace(/├ÿ/g, 'ÿ')
     .replace(/├¿/g, 'ç')
     .replace(/├¢/g, 'â')
     .replace(/├¬/g, 'ê')
-    .replace(/├¬/g, 'î')
     .replace(/├┤/g, 'ô')
     .replace(/├╗/g, 'û')
     // Comillas y otros símbolos
     .replace(/ÔÇ£/g, '"')
     .replace(/ÔÇ¥/g, '"')
     .replace(/ÔÇÖ/g, "'")
-    .replace(/ÔÇÖ/g, "'")
-    .replace(/ÔÇô/g, '—')
-    .replace(/ÔÇô/g, '–');
+    .replace(/ÔÇô/g, '—');
 }
 
 /**
@@ -106,13 +97,6 @@ function createConsequenceFunction(option: any): (state: PlayerState) => EventCo
       const hullChange = calculateEffectValue(selectedRoll.effects?.hull);
       const fuelChange = calculateEffectValue(selectedRoll.effects?.fuel);
       const xpChange = calculateEffectValue(selectedRoll.effects?.xp);
-      
-      console.log('[DEBUG] Event effects:', {
-        credits: creditsChange,
-        hull: hullChange,
-        fuel: fuelChange,
-        xp: xpChange
-      });
       
       return {
         newState: {
@@ -172,7 +156,6 @@ export function getAllCards(): Record<string, CardData> {
         acc[card.id] = card as CardData;
         return acc;
       }, {} as Record<string, CardData>);
-      console.log('[Data] Cartas desde JSON:', Object.keys(cachedCards).length);
       return applyCardIdMapping(cachedCards);
     }
   }
@@ -230,7 +213,6 @@ export function getEnemyTemplates(): Record<string, any> {
         acc[enemy.id] = enemy;
         return acc;
       }, {} as Record<string, any>);
-      console.log('[Data] Enemigos desde JSON:', Object.keys(cachedEnemies).length);
       return cachedEnemies;
     }
   }
@@ -316,7 +298,6 @@ export function clearCache() {
   cachedEnemies = null;
   cachedEncounters = null;
   cachedHazards = null;
-  console.log('[Data] Cache limpiado');
 }
 
 // Note: Use the getter functions directly, not these constants

@@ -3,6 +3,7 @@ import { useCallback } from 'react';
 import { useGame } from '../contexts/GameContext';
 import { ShipData, EventOption, CombatState, ShopCard, ShopServiceType, CardInstance, NodeType } from '../types';
 import { BASE_PLAYER_STATE, LEVEL_THRESHOLDS } from '../constants';
+import { sfx } from '../services/soundManager';
 import { generateMap } from '../services/mapGenerator';
 import { resolveNode, resetEventCardStates } from '../services/eventManager';
 import { resetStationImageAssignments } from '../components/GalacticMap';
@@ -124,6 +125,7 @@ export const useGameHandlers = () => {
     (nodeId: number) => {
       if (!playerState || !mapData) return;
 
+      sfx.travel();
       document.body.classList.add('is-traveling');
       setIsTraveling(true);
 
@@ -160,20 +162,7 @@ export const useGameHandlers = () => {
 
       }, 500);
     },
-    [
-      playerState,
-      mapData,
-      setIsTraveling,
-      setMapData,
-      setCurrentNodeId,
-      addLog,
-      setActiveEvent,
-      setGamePhase,
-      setPreCombatEnemyId,
-      setShopInventory,
-      setSimulationResult,
-      setPlayerState,
-    ]
+    [playerState, mapData, setIsTraveling, setMapData, setCurrentNodeId, addLog, setGamePhase, setPlayerState]
   );
 
   const handleGainXp = useCallback(
@@ -199,7 +188,7 @@ export const useGameHandlers = () => {
         setPendingLevelUps(prev => prev + levelUps);
       }
     },
-    [playerState, addLog, setPlayerState, setPendingLevelUps, pendingLevelUps]
+    [playerState, addLog, setPlayerState, setPendingLevelUps]
   );
 
   const handleEventOptionSelect = useCallback(

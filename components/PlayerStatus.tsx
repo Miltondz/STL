@@ -1,27 +1,15 @@
-import React, { useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { PlayerState } from '../types';
 import { getAllCards } from '../data';
+import { Card } from './Card';
 
 interface PlayerStatusProps {
   state: PlayerState;
   onPauseClick?: () => void;
 }
 
-// Componente para mostrar los recursos actuales del jugador.
-// Proporciona una vista rápida del estado del juego.
 export const PlayerStatus: React.FC<PlayerStatusProps> = ({ state, onPauseClick }) => {
-
-  const uniqueCrewInDeck = useMemo(() => {
-    const ALL_CARDS = getAllCards();
-    const crewIds = new Set<string>();
-    state.deck.forEach(cardInstance => {
-        const cardData = ALL_CARDS[cardInstance.cardId];
-        if (cardData && cardData.type === 'Crew' && cardData.rarity !== 'Common') {
-            crewIds.add(cardInstance.cardId);
-        }
-    });
-    return Array.from(crewIds);
-  }, [state.deck]);
+  const [showDeck, setShowDeck] = useState(false);
 
   return (
     <div className="bg-gray-900/70 backdrop-blur-sm p-1.5 rounded-lg border border-cyan-500/20 h-full flex flex-col">
@@ -30,7 +18,17 @@ export const PlayerStatus: React.FC<PlayerStatusProps> = ({ state, onPauseClick 
           <StatusItem label="Combustible" value={state.fuel} icon="⛽" />
           <StatusItem label="Créditos" value={state.credits} icon="💰" />
           <StatusItem label="Casco" value={`${state.hull}/${state.maxHull}`} icon="❤️" />
-          <StatusItem label="Mazo" value={state.deck.length} icon="🃏" />
+          <button
+            onClick={() => setShowDeck(true)}
+            className="flex items-center gap-1 hover:text-cyan-200 transition-colors"
+            title="Ver mazo completo"
+          >
+            <span className="text-sm">🃏</span>
+            <div className="flex items-baseline gap-1">
+              <span className="font-bold font-orbitron text-cyan-300 text-xs">{state.deck.length}</span>
+              <span className="text-gray-400 text-xs leading-none">Maz</span>
+            </div>
+          </button>
         </div>
         {onPauseClick && (
           <button
@@ -44,8 +42,7 @@ export const PlayerStatus: React.FC<PlayerStatusProps> = ({ state, onPauseClick 
       </div>
 
       <XPBar level={state.level} xp={state.xp} xpToNextLevel={state.xpToNextLevel} />
-      
-      {/* Botón de menú */}
+
       {onPauseClick && (
         <button
           onClick={onPauseClick}
@@ -55,11 +52,12 @@ export const PlayerStatus: React.FC<PlayerStatusProps> = ({ state, onPauseClick 
           ☰ MENÚ
         </button>
       )}
+
+      {showDeck && <DeckViewOverlay deck={state.deck} onClose={() => setShowDeck(false)} />}
     </div>
   );
 };
 
-// Componente de ayuda para mostrar un único item de estado.
 const StatusItem: React.FC<{ label: string; value: number | string; icon: string }> = ({ label, value, icon }) => (
   <div className="flex items-center gap-1">
     <span className="text-sm">{icon}</span>
@@ -70,45 +68,73 @@ const StatusItem: React.FC<{ label: string; value: number | string; icon: string
   </div>
 );
 
-// Nuevo componente para la barra de experiencia y nivel
-const XPBar: React.FC<{ level: number, xp: number, xpToNextLevel: number }> = ({ level, xp, xpToNextLevel }) => {
-    const percentage = xpToNextLevel > 0 ? (xp / xpToNextLevel) * 100 : 0;
-    
-    return (
-        <div className="mt-1 px-1">
-            <div className="flex justify-between items-center mb-0.5">
-                <span className="font-orbitron font-bold text-xs text-yellow-300">LVL {level}</span>
-                <span className="text-gray-400 text-xs">{xp}/{xpToNextLevel}</span>
-            </div>
-            <div className="progress-bar-bg h-1.5 w-full border-yellow-500/50">
-                <div className="progress-bar-fill bg-yellow-400" style={{ width: `${percentage}%` }}></div>
-            </div>
-        </div>
-    );
+const XPBar: React.FC<{ level: number; xp: number; xpToNextLevel: number }> = ({ level, xp, xpToNextLevel }) => {
+  const percentage = xpToNextLevel > 0 ? (xp / xpToNextLevel) * 100 : 0;
+  return (
+    <div className="mt-1 px-1">
+      <div className="flex justify-between items-center mb-0.5">
+        <span className="font-orbitron font-bold text-xs text-yellow-300">LVL {level}</span>
+        <span className="text-gray-400 text-xs">{xp}/{xpToNextLevel}</span>
+      </div>
+      <div className="progress-bar-bg h-1.5 w-full border-yellow-500/50">
+        <div className="progress-bar-fill bg-yellow-400" style={{ width: `${percentage}%` }}></div>
+      </div>
+    </div>
+  );
 };
 
-// Nuevo componente para mostrar la afinidad con la tripulación
-const CrewAffinityDisplay: React.FC<{ crewIds: string[], affinity: { [key: string]: number } }> = ({ crewIds, affinity }) => {
-    const ALL_CARDS = getAllCards();
-    
-    return (
-        <div className="mt-3 pt-3 border-t border-cyan-500/20 flex flex-wrap gap-x-6 gap-y-2 justify-center items-center">
-            <h4 className="w-full text-center text-sm font-bold text-cyan-300/80 mb-1">Afinidad de Tripulación</h4>
-            {crewIds.map(crewId => {
-                const crewData = ALL_CARDS[crewId];
-                if (!crewData) return null;
-                const affinityLevel = affinity[crewId] || 0;
-                let affinityIcon = '😐';
-                if (affinityLevel > 0) affinityIcon = '🙂';
-                if (affinityLevel > 2) affinityIcon = '😄';
-                if (affinityLevel < 0) affinityIcon = '😠';
-                return (
-                    <div key={crewId} className="flex items-center gap-2" title={`Afinidad con ${crewData.name}: ${affinityLevel}`}>
-                        <span className="font-semibold text-sm">{crewData.name}</span>
-                        <span className="text-xl">{affinityIcon}</span>
-                    </div>
-                );
-            })}
+import { CardInstance } from '../types';
+
+const DeckViewOverlay: React.FC<{ deck: CardInstance[]; onClose: () => void }> = ({ deck, onClose }) => {
+  const allCards = useMemo(() => getAllCards(), []);
+
+  const grouped = useMemo(() => {
+    const counts = new Map<string, { instance: CardInstance; count: number }>();
+    for (const inst of deck) {
+      const key = inst.cardId;
+      const existing = counts.get(key);
+      if (existing) existing.count++;
+      else counts.set(key, { instance: inst, count: 1 });
+    }
+    return Array.from(counts.values());
+  }, [deck]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/85 flex flex-col p-4 overflow-y-auto"
+      onClick={onClose}
+    >
+      <div className="max-w-5xl mx-auto w-full" onClick={e => e.stopPropagation()}>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="font-orbitron text-xl text-cyan-300">
+            Mazo — {deck.length} carta{deck.length !== 1 ? 's' : ''}
+          </h2>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-white text-2xl font-bold w-8 h-8 flex items-center justify-center"
+          >
+            ✕
+          </button>
         </div>
-    );
+        <div className="flex flex-wrap gap-3 justify-center">
+          {grouped.map(({ instance, count }) => {
+            const card = allCards[instance.cardId];
+            return (
+              <div key={instance.cardId} className="relative">
+                <Card cardInstance={instance} onClick={() => {}} disabled size="small" />
+                {count > 1 && (
+                  <div className="absolute top-1 right-1 bg-cyan-600 text-white text-xs font-orbitron rounded-full w-5 h-5 flex items-center justify-center">
+                    {count}
+                  </div>
+                )}
+                {!card && (
+                  <div className="text-xs text-red-400 text-center mt-1">{instance.cardId}</div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
 };

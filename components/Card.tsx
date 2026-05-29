@@ -69,9 +69,9 @@ export const Card: React.FC<CardProps> = ({ cardInstance, onClick, onDoubleClick
       onMouseEnter={() => setShowTooltip(true)}
       onMouseLeave={() => setShowTooltip(false)}
     >
-      {/* Tooltip mejorado */}
-      {showTooltip && !isSmall && (
-        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-3 bg-gray-900/95 border-2 border-cyan-400/50 rounded-lg shadow-2xl z-50 animate-fade-in-up pointer-events-none"
+      {/* Tooltip */}
+      {showTooltip && (
+        <div className={`absolute ${isSmall ? 'bottom-full left-1/2 -translate-x-1/2 mb-2' : 'bottom-full left-1/2 -translate-x-1/2 mb-2'} w-64 p-3 bg-gray-900/95 border-2 border-cyan-400/50 rounded-lg shadow-2xl z-[100] animate-fade-in-up pointer-events-none`}
              style={{ boxShadow: '0 0 20px rgba(6, 182, 212, 0.3)' }}>
           <div className="space-y-2">
             <div className="flex justify-between items-start">

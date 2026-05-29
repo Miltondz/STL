@@ -4,6 +4,7 @@ import { Card } from './Card';
 import { getAllCards } from '../data';
 import { ParticleBurst } from './ParticleBurst';
 import { getPlanetImageForNode } from '../services/imageRegistry';
+import { sfx } from '../services/soundManager';
 
 // Componente para números de daño flotantes
 interface FloatingNumber {
@@ -47,37 +48,40 @@ interface CombatInterfaceProps {
 // Iconos para las intenciones del enemigo
 const IntentIcon: React.FC<{ intent: EnemyIntent }> = ({ intent }) => {
     let icon = '❓';
-    let text = `${intent.value || ''}`;
+    let value = '';
+    let label = 'Desconocido';
     let color = 'text-gray-300';
+    let borderColor = 'border-gray-500';
 
     switch (intent.type) {
         case 'ATTACK':
-            icon = '⚔️';
-            color = 'text-red-400';
+            icon = '⚔️'; value = `${intent.value ?? ''}`; label = 'Ataque al casco';
+            color = 'text-red-400'; borderColor = 'border-red-500';
             break;
         case 'DEFEND':
-            icon = '🛡️';
-            color = 'text-cyan-400';
+            icon = '🛡️'; value = `+${intent.value ?? ''}`; label = 'Recarga escudos';
+            color = 'text-cyan-400'; borderColor = 'border-cyan-500';
             break;
         case 'ATTACK_DEFEND':
-            icon = '⚔️🛡️';
-            text = `${intent.value}/${intent.secondaryValue}`;
-            color = 'text-yellow-400';
+            icon = '⚔️🛡️'; value = `${intent.value}/${intent.secondaryValue}`; label = 'Ataca y defiende';
+            color = 'text-yellow-400'; borderColor = 'border-yellow-500';
             break;
         case 'BUFF':
-            icon = '🔥';
-            text = '';
-            color = 'text-orange-400';
+            icon = '🔥'; value = ''; label = 'Carga armas (+3 daño)';
+            color = 'text-orange-400'; borderColor = 'border-orange-500';
             break;
         default:
-             text = '...';
+            value = '...'; label = 'Observa';
     }
 
     return (
-        <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-gray-900/90 border-2 border-yellow-400 rounded-full px-3 py-0.5 flex items-center gap-1 animate-pulse-subtle shadow-lg z-20`}
-             style={{ boxShadow: '0 0 20px rgba(250, 204, 21, 0.5)' }}>
-            <span className="text-lg">{icon}</span>
-            <span className={`font-orbitron font-bold text-sm ${color}`}>{text}</span>
+        <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-gray-900/95 border-2 ${borderColor} rounded-lg px-3 py-1 flex flex-col items-center animate-pulse-subtle shadow-lg z-20`}
+             style={{ boxShadow: '0 0 15px rgba(250, 204, 21, 0.3)' }}>
+            <div className="flex items-center gap-1">
+                <span className="text-lg">{icon}</span>
+                {value && <span className={`font-orbitron font-bold text-sm ${color}`}>{value}</span>}
+            </div>
+            <span className={`text-xs ${color} opacity-80 whitespace-nowrap`}>{label}</span>
         </div>
     );
 };
@@ -198,6 +202,7 @@ export const CombatInterface: React.FC<CombatInterfaceProps> = ({ combatState, o
     const [zoomedCard, setZoomedCard] = useState<CardInstance | null>(null);
     const [isCardPlaying, setIsCardPlaying] = useState(false);
     const [isGameOverHandled, setIsGameOverHandled] = useState(false);
+    const [isEnemyTurn, setIsEnemyTurn] = useState(false);
 
     // Refs a paneles para efectos
     const playerPanelRef = useRef<HTMLDivElement>(null);
@@ -241,6 +246,7 @@ export const CombatInterface: React.FC<CombatInterfaceProps> = ({ combatState, o
       const hpDrop = prevPlayerHp.current - player.hp;
       const shDrop = prevPlayerShield.current - player.shield;
       if (hpDrop > 0) {
+        sfx.damage();
         addFloatingNumber(hpDrop, 'damage', true);
         triggerShake(playerPanelRef.current);
         const id = burstIdRef.current++;
@@ -248,6 +254,7 @@ export const CombatInterface: React.FC<CombatInterfaceProps> = ({ combatState, o
         setTimeout(() => setPlayerBursts(prev => prev.filter(x => x !== id)), 900);
       }
       if (shDrop > 0) {
+        sfx.shield();
         addFloatingNumber(shDrop, 'shield', true);
         triggerShake(playerPanelRef.current);
         const id = burstIdRef.current++;
@@ -262,6 +269,7 @@ export const CombatInterface: React.FC<CombatInterfaceProps> = ({ combatState, o
       const hpDrop = prevEnemyHp.current - enemy.hp;
       const shDrop = prevEnemyShield.current - enemy.shield;
       if (hpDrop > 0) {
+        sfx.damage();
         addFloatingNumber(hpDrop, 'damage', false);
         triggerShake(enemyPanelRef.current);
         const id = burstIdRef.current++;
@@ -269,6 +277,7 @@ export const CombatInterface: React.FC<CombatInterfaceProps> = ({ combatState, o
         setTimeout(() => setEnemyBursts(prev => prev.filter(x => x !== id)), 900);
       }
       if (shDrop > 0) {
+        sfx.shield();
         addFloatingNumber(shDrop, 'shield', false);
         triggerShake(enemyPanelRef.current);
         const id = burstIdRef.current++;
@@ -294,20 +303,19 @@ export const CombatInterface: React.FC<CombatInterfaceProps> = ({ combatState, o
         const canPlay = isPlayerInputPhase && (player.energy || 0) >= actualCost && !isCardPlaying;
 
         if (canPlay) {
+            sfx.card();
             setIsCardPlaying(true);
             setPlayedCard(cardInstance);
             setCardEffect('');
             if (playCardTimerRef.current) clearTimeout(playCardTimerRef.current);
             if (effectTimerRef.current) clearTimeout(effectTimerRef.current);
 
-            // Efecto visual breve (250ms) → turbulencia (300ms) → ejecutar
             playCardTimerRef.current = setTimeout(() => {
                 const effects = ['cardfx-shake', 'cardfx-3d'];
                 setCardEffect(effects[Math.floor(Math.random() * effects.length)]);
 
                 effectTimerRef.current = setTimeout(() => {
                     setCardEffect('cardfx-turbulence');
-
                     setTimeout(() => {
                         onPlayCard(cardInstance.instanceId);
                         setPlayedCard(null);
@@ -318,6 +326,17 @@ export const CombatInterface: React.FC<CombatInterfaceProps> = ({ combatState, o
                 }, 250);
             }, 0);
         }
+    };
+
+    const handleEndTurnClick = () => {
+        if (!isPlayerInputPhase || isCardPlaying || isEnemyTurn) return;
+        sfx.endTurn();
+        setIsEnemyTurn(true);
+        setTimeout(() => {
+            sfx.enemyTurn();
+            onEndTurn();
+            setIsEnemyTurn(false);
+        }, 900);
     };
 
   return (
@@ -581,11 +600,11 @@ export const CombatInterface: React.FC<CombatInterfaceProps> = ({ combatState, o
         <div className="w-52 shrink-0 flex flex-col bg-gray-900/70 p-2 rounded-lg border border-cyan-500/20 overflow-hidden" style={{ height: '320px', maxHeight: '320px' }}>
           {/* Botón Finalizar Turno — pulsa cuando energía agotada */}
           {(() => {
-            const energyEmpty = isPlayerInputPhase && !isCardPlaying && (player.energy || 0) === 0;
+            const energyEmpty = isPlayerInputPhase && !isCardPlaying && !isEnemyTurn && (player.energy || 0) === 0;
             return (
               <button
-                onClick={onEndTurn}
-                disabled={!isPlayerInputPhase || isCardPlaying}
+                onClick={handleEndTurnClick}
+                disabled={!isPlayerInputPhase || isCardPlaying || isEnemyTurn}
                 className={`w-full font-orbitron text-sm p-1 rounded-md border flex-shrink-0
                   disabled:bg-gray-800 disabled:border-gray-600 disabled:text-gray-500
                   bg-green-700/80 border-green-500/70 hover:enabled:bg-green-600/80 hover:enabled:border-green-400
@@ -650,19 +669,29 @@ export const CombatInterface: React.FC<CombatInterfaceProps> = ({ combatState, o
         </div>
       )}
 
+      {/* Overlay turno del enemigo */}
+      {isEnemyTurn && (
+        <div className="absolute inset-0 z-40 bg-black/60 flex items-center justify-center pointer-events-none animate-fade-in">
+          <div className="font-orbitron text-3xl text-red-400 animate-pulse tracking-widest drop-shadow-lg">
+            ⚔ TURNO DEL ENEMIGO ⚔
+          </div>
+        </div>
+      )}
+
       {/* Superposición de Fin de Combate */}
       {isGameOver && (
         <div className="absolute inset-0 z-30 bg-black/80 flex flex-col items-center justify-center p-4 text-center animate-fade-in">
-            <h2 
+            <h2
               className="text-6xl font-orbitron mb-4 drop-shadow-lg"
               style={{ color: combatState.victory ? '#67e8f9' : '#f87171' }}
             >
               {combatState.victory ? '¡VICTORIA!' : 'DERROTA'}
             </h2>
-<button 
+            <button
                 onClick={() => {
                     if (isGameOverHandled) return;
                     setIsGameOverHandled(true);
+                    if (combatState.victory) sfx.victory(); else sfx.defeat();
                     onCombatComplete(combatState);
                 }}
                 disabled={isGameOverHandled}
