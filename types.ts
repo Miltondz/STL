@@ -108,6 +108,34 @@ export interface PlayerState {
   // Metaprogresión
   achievements: string[];
   bonusEnergy?: number; // Extra energy per combat, awarded by level-up ENERGY reward
+  relics: string[];
+  relicState: { [relicId: string]: { used?: boolean } };
+}
+
+// --- Tipos de Relics ---
+export type RelicTrigger =
+  | 'COMBAT_START'
+  | 'TURN_START'
+  | 'TURN_END'
+  | 'CARD_PLAYED_ATTACK'
+  | 'DAMAGE_TAKEN_HULL'
+  | 'COMBAT_END_VICTORY'
+  | 'NODE_ENTERED'
+  | 'SHOP_ENTERED'
+  | 'PASSIVE';
+
+export type RelicRarity = 'Common' | 'Uncommon' | 'Rare' | 'Boss' | 'Event';
+
+export interface RelicData {
+  id: string;
+  name: string;
+  rarity: RelicRarity;
+  icon: string;
+  description: string;
+  flavorText?: string;
+  trigger: RelicTrigger;
+  effect: { kind: string; value?: number };
+  oneShot?: boolean;
 }
 
 // --- Efectos de Estado ---
@@ -204,6 +232,8 @@ export interface CombatState {
   actionQueue: Action[];
   log: string[];
   victory?: boolean;
+  relics?: string[];
+  relicState?: { [relicId: string]: { used?: boolean } };
 }
 
 

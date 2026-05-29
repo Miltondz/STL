@@ -15,6 +15,7 @@ import { EventCard } from './components/EventCard';
 import { CombatInterface } from './components/CombatInterface';
 import { PreCombatModal } from './components/PreCombatModal';
 import { CardRewardScreen } from './components/CardRewardScreen';
+import { RelicRewardScreen } from './components/RelicTray';
 import { ShopModal } from './components/ShopModal';
 import { GenericModal } from './components/GenericModal';
 import { LevelUpModal } from './components/LevelUpModal';
@@ -43,6 +44,7 @@ function App() {
     preCombatEnemyId,
     cardRewards,
     rewardTitle,
+    relicRewards,
     shopInventory,
     simulationResult,
     pendingLevelUps,
@@ -63,6 +65,7 @@ function App() {
     handleEndTurn,
     handleCombatComplete,
     handleCardRewardSelect,
+    handleRelicRewardSelect,
     handleLevelUpReward,
     handleBuyCard,
     handlePerformService,
@@ -109,6 +112,7 @@ function App() {
       case 'EVENT':
       case 'SHOP':
       case 'CARD_REWARD':
+      case 'RELIC_REWARD':
       case 'LEVEL_UP':
       case 'SIMULATION_RESULT':
         document.body.classList.add('in-game');
@@ -218,6 +222,9 @@ function App() {
       )}
       {gamePhase === 'CARD_REWARD' && cardRewards.length > 0 && (
           <CardRewardScreen cardIds={cardRewards} onCardSelect={handleCardRewardSelect} title={rewardTitle} />
+      )}
+      {gamePhase === 'RELIC_REWARD' && relicRewards.length > 0 && (
+          <RelicRewardScreen relicIds={relicRewards} onSelect={handleRelicRewardSelect} />
       )}
       {gamePhase === 'SHOP' && shopInventory && (
           <ShopModal inventory={shopInventory} playerState={playerState} onBuyCard={handleBuyCard} onPerformService={handlePerformService} onClose={() => {

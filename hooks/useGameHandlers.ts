@@ -10,6 +10,12 @@ import { resetStationImageAssignments } from '../components/GalacticMap';
 import * as combatEngine from '../services/combatEngine';
 import { generateShopInventory } from '../services/shopManager';
 import { getAllCards } from '../data';
+import {
+  ALL_RELICS,
+  applyRelicsOnCombatVictory,
+  computeRelicNodeFuelCost,
+  applyRelicsOnShopEntered,
+} from '../services/relicEngine';
 
 const createCardInstance = (cardId: string): CardInstance => ({
   instanceId: `${cardId}_${Date.now()}_${Math.random()}`,
@@ -24,6 +30,7 @@ export const useGameHandlers = () => {
     activeCombat,
     preCombatEnemyId,
     pendingLevelUps,
+    relicRewards,
     setGamePhase,
     setPlayerState,
     setMapData,
@@ -36,6 +43,7 @@ export const useGameHandlers = () => {
     setPreCombatEnemyId,
     setCardRewards,
     setRewardTitle,
+    setRelicRewards,
     setShopInventory,
     setSimulationResult,
     setPendingLevelUps,
@@ -104,7 +112,15 @@ export const useGameHandlers = () => {
       setGamePhase('PRE_COMBAT');
       addLog('¡Contacto hostil detectado!');
     } else if (resolution.shop) {
-      setShopInventory(generateShopInventory());
+      let inventory = generateShopInventory();
+      const shopRelicResult = applyRelicsOnShopEntered(playerState);
+      if (shopRelicResult.freeCardIndex >= 0 && inventory.cards.length > 0) {
+        const idx = Math.floor(Math.random() * inventory.cards.length);
+        inventory = { ...inventory, cards: inventory.cards.map((c, i) => i === idx ? { ...c, price: 0, isDeal: true } : c) };
+        setPlayerState(shopRelicResult.playerState);
+        addLog(`🤝 Contacto Contrabandista: una carta es gratis hoy.`);
+      }
+      setShopInventory(inventory);
       setGamePhase('SHOP');
     } else if (resolution.simulation) {
       setSimulationResult(resolution.simulation);
@@ -126,7 +142,15 @@ export const useGameHandlers = () => {
         document.body.classList.remove('is-traveling');
         setIsTraveling(false);
 
-        const newPlayerState = { ...playerState, fuel: playerState.fuel - 1 };
+        const selectedNodeForFuel = mapData.nodes.find((n) => n.id === nodeId)!;
+        const isFirstInLayer = !mapData.nodes.some(
+          n => n.layer === selectedNodeForFuel.layer && n.visited
+        );
+        const fuelCost = computeRelicNodeFuelCost(playerState, 1, isFirstInLayer);
+        if (fuelCost === 0 && isFirstInLayer && (playerState.relics || []).includes('REL_QUANTUM_ENGINE')) {
+          addLog(`⚛️ Motor Cuántico: viaje gratis al primer nodo de esta capa.`);
+        }
+        const newPlayerState = { ...playerState, fuel: playerState.fuel - fuelCost };
         const newNodes = mapData.nodes.map((n) => (n.id === nodeId ? { ...n, visited: true } : n));
         setMapData({ ...mapData, nodes: newNodes });
         setCurrentNodeId(nodeId);
@@ -253,6 +277,13 @@ export const useGameHandlers = () => {
         newState.credits += creditsGained;
         addLog(`Recuperas ${creditsGained} créditos de los restos.`);
 
+        // REL_PIRATE_FLAG: bonus credits on victory
+        const relicVictoryResult = applyRelicsOnCombatVictory(newState);
+        if (relicVictoryResult.playerState !== newState) {
+          newState = relicVictoryResult.playerState;
+          relicVictoryResult.logs.forEach(l => addLog(l));
+        }
+
         setPlayerState(newState);
         if (xpGained > 0) handleGainXp(xpGained);
 
@@ -278,6 +309,17 @@ export const useGameHandlers = () => {
         }
         setCardRewards(selected.map((c) => c.id));
         setRewardTitle('Recompensa de Combate');
+
+        // Offer relic reward if there are unowned relics
+        const ownedRelics = newState.relics || [];
+        const unownedRelics = Object.keys(ALL_RELICS).filter(id => !ownedRelics.includes(id));
+        if (unownedRelics.length > 0) {
+          const shuffledRelics = [...unownedRelics].sort(() => 0.5 - Math.random());
+          setRelicRewards(shuffledRelics.slice(0, Math.min(3, shuffledRelics.length)));
+        } else {
+          setRelicRewards([]);
+        }
+
         setGamePhase('CARD_REWARD');
       } else {
         setPlayerState(newState);
@@ -300,11 +342,13 @@ export const useGameHandlers = () => {
 
       if (pendingLevelUps > 0) {
         setGamePhase('LEVEL_UP');
+      } else if (relicRewards.length > 0) {
+        setGamePhase('RELIC_REWARD');
       } else {
         setGamePhase('IN_GAME');
       }
     },
-    [playerState, setPlayerState, addLog, setCardRewards, pendingLevelUps, setGamePhase]
+    [playerState, setPlayerState, addLog, setCardRewards, pendingLevelUps, relicRewards, setGamePhase]
   );
 
   const handleLevelUpReward = useCallback(
@@ -388,6 +432,26 @@ export const useGameHandlers = () => {
     [playerState, setPlayerState, addLog]
   );
 
+  const handleRelicRewardSelect = useCallback(
+    (relicId: string | null) => {
+      if (relicId && playerState) {
+        const newPlayerState = {
+          ...playerState,
+          relics: [...(playerState.relics || []), relicId],
+        };
+        setPlayerState(newPlayerState);
+        addLog(`Has obtenido la reliquia: ${ALL_RELICS[relicId]?.name ?? relicId}.`);
+      }
+      setRelicRewards([]);
+      if (pendingLevelUps > 0) {
+        setGamePhase('LEVEL_UP');
+      } else {
+        setGamePhase('IN_GAME');
+      }
+    },
+    [playerState, pendingLevelUps, setPlayerState, setRelicRewards, setGamePhase, addLog]
+  );
+
   const handleSimulationComplete = useCallback(() => {
     setSimulationResult(null);
     if (pendingLevelUps > 0) {
@@ -410,14 +474,22 @@ export const useGameHandlers = () => {
 
   const handleShopAccess = useCallback(() => {
     if (!playerState || !mapData) return;
-    
+
     const currentNode = mapData.nodes.find(n => n.id === currentNodeId);
     if (currentNode?.type === NodeType.SHOP) {
-      setShopInventory(generateShopInventory());
+      let inventory = generateShopInventory();
+      const shopRelicResult = applyRelicsOnShopEntered(playerState);
+      if (shopRelicResult.freeCardIndex >= 0 && inventory.cards.length > 0) {
+        const idx = Math.floor(Math.random() * inventory.cards.length);
+        inventory = { ...inventory, cards: inventory.cards.map((c, i) => i === idx ? { ...c, price: 0, isDeal: true } : c) };
+        setPlayerState(shopRelicResult.playerState);
+        addLog(`🤝 Contacto Contrabandista: una carta es gratis hoy.`);
+      }
+      setShopInventory(inventory);
       setGamePhase('SHOP');
       addLog('Accediendo a la estación comercial...');
     }
-  }, [playerState, mapData, currentNodeId, setShopInventory, setGamePhase, addLog]);
+  }, [playerState, mapData, currentNodeId, setPlayerState, setShopInventory, setGamePhase, addLog]);
 
   return {
     handleShowHangar,
@@ -433,6 +505,7 @@ export const useGameHandlers = () => {
     handleEndTurn,
     handleCombatComplete,
     handleCardRewardSelect,
+    handleRelicRewardSelect,
     handleLevelUpReward,
     handleBuyCard,
     handlePerformService,

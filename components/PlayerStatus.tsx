@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { PlayerState } from '../types';
 import { getAllCards } from '../data';
 import { Card } from './Card';
+import { RelicTray } from './RelicTray';
 
 interface PlayerStatusProps {
   state: PlayerState;
@@ -42,6 +43,12 @@ export const PlayerStatus: React.FC<PlayerStatusProps> = ({ state, onPauseClick 
       </div>
 
       <XPBar level={state.level} xp={state.xp} xpToNextLevel={state.xpToNextLevel} />
+
+      {(state.relics?.length ?? 0) > 0 && (
+        <div className="px-1">
+          <RelicTray relicIds={state.relics} />
+        </div>
+      )}
 
       {onPauseClick && (
         <button

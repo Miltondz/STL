@@ -1,7 +1,7 @@
 // services/saveManager.ts
 import { PlayerState, MapData } from '../types';
 
-const SAVE_VERSION = 1;
+const SAVE_VERSION = 2;
 const SAVE_KEY = 'stl_game_save';
 
 export interface GameSave {
@@ -55,6 +55,13 @@ export const loadGame = (): GameSave | null => {
 
     const save: GameSave = JSON.parse(serialized);
     
+    // Migrate v1 → v2: add relic fields
+    if (save.version === 1) {
+      save.playerState.relics = save.playerState.relics || [];
+      save.playerState.relicState = save.playerState.relicState || {};
+      save.version = 2;
+    }
+
     // Validar versión
     if (save.version !== SAVE_VERSION) {
       console.warn('[SaveManager] Versión de guardado incompatible, eliminando guardado obsoleto');
@@ -127,6 +134,11 @@ export const importSave = (file: File): Promise<boolean> => {
     const processContent = (content: string) => {
       try {
         const save: GameSave = JSON.parse(content);
+        if (save.version === 1) {
+          save.playerState.relics = save.playerState.relics || [];
+          save.playerState.relicState = save.playerState.relicState || {};
+          save.version = 2;
+        }
         if (save.version !== SAVE_VERSION) {
           console.error('[SaveManager] Versión incompatible');
           resolve(false);

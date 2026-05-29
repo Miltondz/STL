@@ -11,6 +11,14 @@ import {
   isStunned,
   tickStatusesAtTurnEnd,
 } from './statusEngine';
+import {
+  applyRelicsOnCombatStart,
+  computeRelicTurnStartEffects,
+  computeRelicTurnEndEffects,
+  computeRelicCardDmgBonus,
+  computeRelicBurnStacks,
+  computeRelicDamageTakenEffects,
+} from './relicEngine';
 
 // --- Datos del Juego (lazy — llamar dentro de funciones para respetar carga de JSON) ---
 
@@ -37,7 +45,8 @@ const shuffleArray = <T>(array: T[], rng: SeededRNG): T[] => {
 const resolveAction = (state: CombatState, action: Action): CombatState => {
     const newState = { ...state, combatants: JSON.parse(JSON.stringify(state.combatants)) };
     let newLog = '';
-    
+    const extraLogs: string[] = [];
+
     const source = newState.combatants.find(c => c.id === action.sourceId);
     let target = newState.combatants.find(c => c.id === action.targetId);
 
@@ -61,6 +70,16 @@ const resolveAction = (state: CombatState, action: Action): CombatState => {
                 newLog += ` Los escudos absorben ${shieldDamage} de daño.`;
             }
 
+            if (damage > 0 && target.isPlayer) {
+                const relicResult = computeRelicDamageTakenEffects(newState.relics, newState.relicState, damage);
+                damage = relicResult.dmg;
+                newState.relicState = relicResult.newRelicState;
+                extraLogs.push(...relicResult.logs);
+                if (relicResult.shieldRestore > 0) {
+                    target.shield = Math.min(target.maxShield, target.shield + relicResult.shieldRestore);
+                }
+            }
+
             if (damage > 0) {
                 target.hp -= damage;
                 newLog += ` El casco recibe ${damage} de daño.`;
@@ -81,8 +100,11 @@ const resolveAction = (state: CombatState, action: Action): CombatState => {
         }
         case 'APPLY_STATUS': {
             const statusId = action.meta?.status as StatusEffectId | undefined;
-            const stacks = action.value || 1;
+            let stacks = action.value || 1;
             if (statusId && STATUS_DEFS[statusId]) {
+                if (statusId === 'BURN' && source?.isPlayer) {
+                    stacks = computeRelicBurnStacks(newState.relics, stacks);
+                }
                 target.statuses = applyStatus(target.statuses || [], statusId, stacks);
                 newLog = `${target.name} recibe ${STATUS_DEFS[statusId].name} (${stacks}).`;
             }
@@ -152,7 +174,7 @@ const resolveAction = (state: CombatState, action: Action): CombatState => {
             break;
         }
     }
-    return { ...newState, log: [...newState.log, newLog] };
+    return { ...newState, log: [...newState.log, ...extraLogs, newLog] };
 };
 
 // Procesa la cola de acciones completa y comprueba si el combate ha terminado.
@@ -225,7 +247,13 @@ const startPlayerTurn = (state: CombatState, rng: SeededRNG): CombatState => {
     playerMutatable.fuego = 0;
     playerMutatable.maniobra = 0;
 
-    const amount = 5;
+    // Relic turn-start bonuses
+    const relicTurnEffects = computeRelicTurnStartEffects(newState);
+    playerMutatable.energy! += relicTurnEffects.energyBonus;
+    newState.relicState = relicTurnEffects.newRelicState;
+    relicTurnEffects.logs.forEach(l => newState.log.push(l));
+
+    const amount = 5 + relicTurnEffects.bonusDrawCount;
     for (let i = 0; i < amount; i++) {
         if (playerMutatable.drawPile!.length === 0) {
             if (playerMutatable.discardPile!.length === 0) break;
@@ -289,7 +317,11 @@ export const createCombat = (playerState: PlayerState, enemyId: string, seed: nu
     combatants: [player, enemy],
     actionQueue: [],
     log: [`Comienza el combate contra ${enemy.name}!`],
+    relics: playerState.relics || [],
+    relicState: {},
   };
+
+  initialState = applyRelicsOnCombatStart(initialState);
 
   const stateWithIntent = setEnemyIntent(initialState, rng);
   const stateAfterDraw = startPlayerTurn(stateWithIntent, rng);
@@ -335,9 +367,18 @@ export const playCard = (state: CombatState, cardInstanceId: string, targetId: s
     // 3. Generar acciones basadas en el efecto
     const actualValue = (cardData.value || 0) + (affix?.valueModifier || 0);
 
+    // Relic: first-attack-per-turn damage bonus
+    let relicDmgBonus = 0;
+    if (cardData.type === 'Attack') {
+        const relicCardResult = computeRelicCardDmgBonus(newState.relics, newState.relicState);
+        relicDmgBonus = relicCardResult.dmgBonus;
+        newState.relicState = relicCardResult.newRelicState;
+        relicCardResult.logs.forEach(l => newState.log.push(l));
+    }
+
     switch (cardData.effectBase) {
         case 'EFFECT_DAMAGE':
-            newState.actionQueue.push(createAction('DEAL_DAMAGE', player.id, targetId, actualValue));
+            newState.actionQueue.push(createAction('DEAL_DAMAGE', player.id, targetId, actualValue + relicDmgBonus));
             break;
         case 'EFFECT_FIRE_2':
             newState.actionQueue.push(createAction('GAIN_RESOURCE', player.id, player.id, actualValue || 2, { resource: 'fuego' }));
@@ -380,12 +421,16 @@ export const playCard = (state: CombatState, cardInstanceId: string, targetId: s
             break;
         case 'EFFECT_APPLY_EMP':
             newState.actionQueue.push(createAction('APPLY_STATUS', player.id, targetId, 1, { status: 'EMP' }));
+            if ((newState.relics || []).includes('REL_EMP_CAPACITOR')) {
+                newState.actionQueue.push(createAction('GAIN_RESOURCE', player.id, player.id, 1, { resource: 'fuego' }));
+                newState.log.push(`⚡ Capacitor EMP: +1 Fuego.`);
+            }
             break;
         case 'EFFECT_APPLY_OVERCHARGE':
             newState.actionQueue.push(createAction('APPLY_STATUS', player.id, player.id, actualValue || 2, { status: 'OVERCHARGE' }));
             break;
         case 'EFFECT_DAMAGE_AND_BURN': {
-            newState.actionQueue.push(createAction('DEAL_DAMAGE', player.id, targetId, actualValue));
+            newState.actionQueue.push(createAction('DEAL_DAMAGE', player.id, targetId, actualValue + relicDmgBonus));
             newState.actionQueue.push(createAction('APPLY_STATUS', player.id, targetId, 2, { status: 'BURN' }));
             break;
         }
@@ -484,7 +529,17 @@ export const resolveTurn = (initialState: CombatState): CombatState => {
         resolvedState = tickStatusesAtTurnEnd(resolvedState);
     }
 
-    // 4. Fase de fin de turno (si el combate no ha terminado)
+    // 4. Relic turn-end effects (e.g. black box hand-empty check)
+    if (resolvedState.phase !== 'GAME_OVER') {
+        const playerForRelics = resolvedState.combatants.find(c => c.isPlayer)!;
+        const handIsEmpty = (playerForRelics.hand?.length || 0) === 0;
+        const { newRelicState, logs } = computeRelicTurnEndEffects(
+            resolvedState.relics, resolvedState.relicState, handIsEmpty
+        );
+        resolvedState = { ...resolvedState, relicState: newRelicState, log: [...resolvedState.log, ...logs] };
+    }
+
+    // 5. Fase de fin de turno (si el combate no ha terminado)
     if (resolvedState.phase !== 'GAME_OVER') {
         resolvedState.turn += 1;
         resolvedState = startPlayerTurn(resolvedState, rng);

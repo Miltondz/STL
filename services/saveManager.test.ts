@@ -36,6 +36,8 @@ describe('saveManager', () => {
     narrativeFlags: {},
     crewAffinity: {},
     achievements: [],
+    relics: [],
+    relicState: {},
   };
 
   const mockMapData: MapData = {
@@ -67,7 +69,7 @@ describe('saveManager', () => {
     it('debe incluir versión y timestamp', () => {
       saveGame(mockPlayerState, mockMapData, 0, mockLogs);
       const saved = JSON.parse(localStorage.getItem('stl_game_save')!);
-      expect(saved.version).toBe(1);
+      expect(saved.version).toBe(2);
       expect(saved.timestamp).toBeTypeOf('number');
     });
 
