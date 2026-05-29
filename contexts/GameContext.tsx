@@ -156,7 +156,7 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
       playerState &&
       mapData &&
       currentNodeId !== null &&
-      gamePhase === 'IN_GAME'
+      (gamePhase === 'IN_GAME' || gamePhase === 'PRE_COMBAT')
     ) {
       // Debounce: guardar 2s después del último cambio
       const timer = setTimeout(() => {

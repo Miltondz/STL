@@ -347,8 +347,12 @@ export const playCard = (state: CombatState, cardInstanceId: string, targetId: s
              break;
         case 'CREW_BASIC':
             newState.log.push(`El ${cardData.name} es tripulación y no tiene efecto en combate.`);
-            // Devuelve la energía gastada, ya que no hace nada.
-            playerMutatable.energy! += actualCost; 
+            playerMutatable.energy! += actualCost;
+            break;
+        default:
+            console.warn(`[CombatEngine] effectBase desconocido: "${cardData.effectBase}". Energía devuelta.`);
+            newState.log.push(`${cardData.name} no tiene efecto en combate.`);
+            playerMutatable.energy! += actualCost;
             break;
     }
 

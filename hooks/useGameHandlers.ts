@@ -1,7 +1,7 @@
 // hooks/useGameHandlers.ts
 import { useCallback } from 'react';
 import { useGame } from '../contexts/GameContext';
-import { ShipData, EventOption, CombatState, ShopCard, ShopServiceType, CardInstance, NodeType } from '../types';
+import { ShipData, EventOption, CombatState, ShopCard, ShopServiceType, CardInstance, NodeType, CardAffix } from '../types';
 import { BASE_PLAYER_STATE, LEVEL_THRESHOLDS } from '../constants';
 import { sfx } from '../services/soundManager';
 import { generateMap } from '../services/mapGenerator';
@@ -100,16 +100,9 @@ export const useGameHandlers = () => {
       setActiveEvent(resolution.card);
       setGamePhase('EVENT');
     } else if (resolution.combat) {
-      try {
-        const newCombat = combatEngine.createCombat(playerState, resolution.combat.enemyId, Date.now());
-        setActiveCombat(newCombat);
-        setGamePhase('COMBAT');
-        addLog(`¡Iniciando combate contra ${newCombat.combatants.find(c => !c.isPlayer)?.name}!`);
-      } catch (err) {
-        console.error('[Combat] Error al crear combate:', err);
-        addLog('Error al iniciar el combate. Regresando al mapa.');
-        setGamePhase('IN_GAME');
-      }
+      setPreCombatEnemyId(resolution.combat.enemyId);
+      setGamePhase('PRE_COMBAT');
+      addLog('¡Contacto hostil detectado!');
     } else if (resolution.shop) {
       setShopInventory(generateShopInventory());
       setGamePhase('SHOP');
@@ -119,7 +112,7 @@ export const useGameHandlers = () => {
       addLog(resolution.simulation.log);
       setGamePhase('SIMULATION_RESULT');
     }
-  }, [playerState, mapData, addLog, setActiveEvent, setGamePhase, setShopInventory, setSimulationResult, setPlayerState]);
+  }, [playerState, mapData, currentNodeId, addLog, setActiveEvent, setPreCombatEnemyId, setGamePhase, setShopInventory, setSimulationResult, setPlayerState]);
 
   const handleNodeSelect = useCallback(
     (nodeId: number) => {
@@ -263,11 +256,27 @@ export const useGameHandlers = () => {
         setPlayerState(newState);
         if (xpGained > 0) handleGainXp(xpGained);
 
-        const rewards = Object.values(getAllCards()).filter(
+        const allCardValues = Object.values(getAllCards());
+        const rewards = allCardValues.filter(
           (c) => (c.rarity === 'Uncommon' || c.rarity === 'Common') && c.price > 0
         );
-        const shuffled = [...rewards].sort(() => 0.5 - Math.random());
-        setCardRewards(shuffled.slice(0, 3).map((c) => c.id));
+
+        // Bias toward cards matching the deck's dominant type
+        const typeCounts = playerState.deck.reduce((acc, inst) => {
+          const cd = getAllCards()[inst.cardId];
+          if (cd) acc[cd.type] = (acc[cd.type] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>);
+        const dominantType = Object.entries(typeCounts).sort((a, b) => b[1] - a[1])[0]?.[0];
+        const weightedPool = rewards.flatMap((c) => (c.type === dominantType ? [c, c, c] : [c]));
+        const shuffled = [...weightedPool].sort(() => 0.5 - Math.random());
+        const selected: typeof rewards = [];
+        const seen = new Set<string>();
+        for (const c of shuffled) {
+          if (!seen.has(c.id)) { seen.add(c.id); selected.push(c); }
+          if (selected.length >= 3) break;
+        }
+        setCardRewards(selected.map((c) => c.id));
         setRewardTitle('Recompensa de Combate');
         setGamePhase('CARD_REWARD');
       } else {
@@ -341,16 +350,39 @@ export const useGameHandlers = () => {
     [playerState, setPlayerState, addLog]
   );
 
+  const UPGRADE_AFFIX: CardAffix = {
+    name: 'Mejorada',
+    description: '+2 efecto, -1 coste',
+    costModifier: -1,
+    valueModifier: 2,
+  };
+
   const handlePerformService = useCallback(
-    (serviceType: ShopServiceType, cardInstanceId?: string) => {
+    (serviceType: ShopServiceType, price: number, cardInstanceId?: string) => {
       if (!playerState) return;
-      // Implementar lógica de servicios (por ahora solo remove_card)
+      if (playerState.credits < price) return;
+
       if (serviceType === 'remove_card' && cardInstanceId) {
         setPlayerState({
           ...playerState,
+          credits: playerState.credits - price,
           deck: playerState.deck.filter((c) => c.instanceId !== cardInstanceId),
         });
         addLog('Has eliminado una carta de tu mazo.');
+      } else if (serviceType === 'repair_hull') {
+        const healAmount = Math.min(20, playerState.maxHull - playerState.hull);
+        setPlayerState({
+          ...playerState,
+          credits: playerState.credits - price,
+          hull: playerState.hull + healAmount,
+        });
+        addLog(`Reparas ${healAmount} puntos de casco.`);
+      } else if (serviceType === 'upgrade_card' && cardInstanceId) {
+        const newDeck = playerState.deck.map((c) =>
+          c.instanceId === cardInstanceId && !c.affix ? { ...c, affix: UPGRADE_AFFIX } : c
+        );
+        setPlayerState({ ...playerState, credits: playerState.credits - price, deck: newDeck });
+        addLog('Has mejorado una carta de tu mazo.');
       }
     },
     [playerState, setPlayerState, addLog]

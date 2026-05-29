@@ -87,6 +87,36 @@ const IntentIcon: React.FC<{ intent: EnemyIntent }> = ({ intent }) => {
 };
 
 
+const patternIntentInfo = (action: string): { icon: string; color: string } => {
+    switch (action) {
+        case 'ATTACK': return { icon: '⚔️', color: 'text-red-300' };
+        case 'DEFEND': return { icon: '🛡️', color: 'text-cyan-300' };
+        case 'BUFF': return { icon: '🔥', color: 'text-orange-300' };
+        case 'ATTACK_DEFEND': return { icon: '⚔🛡', color: 'text-yellow-300' };
+        default: return { icon: '❓', color: 'text-gray-400' };
+    }
+};
+
+const UpcomingIntents: React.FC<{ enemy: Combatant }> = ({ enemy }) => {
+    const upcoming = useMemo(() => {
+        if (!enemy.pattern || enemy.pattern.length <= 1) return [];
+        const idx = enemy.patternIndex || 0;
+        const len = enemy.pattern.length;
+        return [1, 2].map(offset => enemy.pattern![(idx + offset) % len]).slice(0, len - 1);
+    }, [enemy.pattern, enemy.patternIndex]);
+
+    if (upcoming.length === 0) return null;
+    return (
+        <div className="absolute -bottom-7 left-1/2 -translate-x-1/2 flex items-center gap-1 z-10 bg-gray-900/80 px-2 py-0.5 rounded-full border border-gray-700/50">
+            <span className="text-xs text-gray-500">↓</span>
+            {upcoming.map((p, i) => {
+                const { icon, color } = patternIntentInfo(p);
+                return <span key={i} className={`text-xs ${color} opacity-70`}>{icon}</span>;
+            })}
+        </div>
+    );
+};
+
 // Panel que muestra la información de un combatiente (NUEVO DISEÑO COMPACTO)
 const CombatantPanel: React.FC<{ combatant: Combatant; onDamage?: (amount: number) => void }> = ({ combatant, onDamage }) => {
   const { name, hp, maxHp, shield, maxShield, isPlayer, intent, image } = combatant;
@@ -179,7 +209,7 @@ const CombatLog: React.FC<{ logs: string[] }> = ({ logs }) => {
         <div className="flex flex-col h-full w-full" style={{ minHeight: 0 }}>
             <h3 className="font-orbitron text-xs text-cyan-400 mb-1 border-b border-cyan-500/20 pb-1 flex-shrink-0">Bitácora</h3>
             <div ref={logContainerRef} className="flex-1 overflow-y-auto pr-1 text-xs space-y-1" style={{ minHeight: 0 }}>
-                {logs.slice(-50).map((entry, index) => (
+                {logs.slice(-20).map((entry, index) => (
                     <p key={index} className="text-gray-300 animate-fade-in-up leading-snug">{entry}</p>
                 ))}
             </div>
@@ -482,6 +512,7 @@ export const CombatInterface: React.FC<CombatInterfaceProps> = ({ combatState, o
               <IntentIcon intent={enemy.intent} />
             </div>
           )}
+          <UpcomingIntents enemy={enemy} />
           <div className="w-full flex items-center justify-center overflow-hidden" style={{ height: 'calc(520px - 80px)' }}>
             <img src={enemy.image} alt={enemy.name} className="h-full w-full object-cover" />
           </div>

@@ -59,6 +59,8 @@ export const generateShopInventory = (): ShopInventory => {
         cards: shopCards,
         services: [
             { type: 'remove_card', price: Math.ceil(10 * servicePriceModifier) },
+            { type: 'repair_hull', price: Math.ceil(25 * servicePriceModifier) },
+            { type: 'upgrade_card', price: Math.ceil(50 * servicePriceModifier) },
         ]
     };
 };

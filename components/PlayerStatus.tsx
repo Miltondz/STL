@@ -15,7 +15,7 @@ export const PlayerStatus: React.FC<PlayerStatusProps> = ({ state, onPauseClick 
     <div className="bg-gray-900/70 backdrop-blur-sm p-1.5 rounded-lg border border-cyan-500/20 h-full flex flex-col">
       <div className="flex justify-between items-center mb-1">
         <div className="flex gap-x-3 flex-1 justify-between">
-          <StatusItem label="Combustible" value={state.fuel} icon="⛽" />
+          <StatusItem label="Combustible" value={state.fuel} icon="⛽" warning={state.fuel <= 2} />
           <StatusItem label="Créditos" value={state.credits} icon="💰" />
           <StatusItem label="Casco" value={`${state.hull}/${state.maxHull}`} icon="❤️" />
           <button
@@ -58,12 +58,12 @@ export const PlayerStatus: React.FC<PlayerStatusProps> = ({ state, onPauseClick 
   );
 };
 
-const StatusItem: React.FC<{ label: string; value: number | string; icon: string }> = ({ label, value, icon }) => (
-  <div className="flex items-center gap-1">
+const StatusItem: React.FC<{ label: string; value: number | string; icon: string; warning?: boolean }> = ({ label, value, icon, warning }) => (
+  <div className={`flex items-center gap-1 ${warning ? 'animate-pulse' : ''}`}>
     <span className="text-sm">{icon}</span>
     <div className="flex items-baseline gap-1">
-      <span className="font-bold font-orbitron text-cyan-300 text-xs">{value}</span>
-      <span className="text-gray-400 text-xs leading-none">{label.slice(0, 3)}</span>
+      <span className={`font-bold font-orbitron text-xs ${warning ? 'text-red-400' : 'text-cyan-300'}`}>{value}</span>
+      <span className={`text-xs leading-none ${warning ? 'text-red-500' : 'text-gray-400'}`}>{label.slice(0, 3)}</span>
     </div>
   </div>
 );

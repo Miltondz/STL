@@ -8,7 +8,7 @@ interface ShopModalProps {
   inventory: ShopInventory;
   playerState: PlayerState;
   onBuyCard: (card: ShopCard) => void;
-  onPerformService: (serviceType: ShopServiceType, cardInstanceId?: string) => void;
+  onPerformService: (serviceType: ShopServiceType, price: number, cardInstanceId?: string) => void;
   onClose: () => void;
 }
 
@@ -71,10 +71,10 @@ const ShopCardItem: React.FC<{ shopCard: ShopCard; playerCredits: number; onBuy:
 // Componente para un servicio de la tienda
 const ShopServiceItem: React.FC<{ serviceType: ShopServiceType; price: number; playerCredits: number; onPerform: (serviceType: ShopServiceType) => void; isBusy: boolean; setIsBusy: (busy: boolean) => void; }> = ({ serviceType, price, playerCredits, onPerform, isBusy, setIsBusy }) => {
     const canAfford = playerCredits >= price;
-    const descriptions = {
-        'remove_card': `Elimina permanentemente una carta de tu mazo por ${price} créditos.`,
-        'repair_hull': `Repara el casco por ${price} créditos. (No implementado)`,
-        'upgrade_card': `Mejora una carta por ${price} créditos. (No implementado)`
+    const descriptions: Record<ShopServiceType, string> = {
+        'remove_card': `Elimina permanentemente una carta de tu mazo. ${price} créditos.`,
+        'repair_hull': `Repara hasta 20 puntos de casco. ${price} créditos.`,
+        'upgrade_card': `Mejora una carta: -1 coste, +2 efecto. ${price} créditos.`,
     };
 
     return (
@@ -85,12 +85,12 @@ const ShopServiceItem: React.FC<{ serviceType: ShopServiceType; price: number; p
                 onPerform(serviceType);
                 setTimeout(() => setIsBusy(false), 500);
             }}
-            disabled={!canAfford || serviceType !== 'remove_card' || isBusy} // Deshabilitar servicios no implementados
-            className={`w-full text-left p-4 rounded-md border transition-all duration-200 
-            ${!canAfford || serviceType !== 'remove_card' ? 'bg-gray-800/50 border-gray-600/50 text-gray-500 cursor-not-allowed' :
+            disabled={!canAfford || isBusy}
+            className={`w-full text-left p-4 rounded-md border transition-all duration-200
+            ${!canAfford ? 'bg-gray-800/50 border-gray-600/50 text-gray-500 cursor-not-allowed' :
             'bg-gray-700/50 border-cyan-600/50 hover:bg-cyan-500/20 hover:border-cyan-400'}`}
         >
-            <p className="font-bold font-orbitron">{serviceType.replace('_', ' ').toUpperCase()}</p>
+            <p className="font-bold font-orbitron">{serviceType.replace(/_/g, ' ').toUpperCase()}</p>
             <p className="text-sm text-gray-300">{descriptions[serviceType]}</p>
         </button>
     );
@@ -98,21 +98,32 @@ const ShopServiceItem: React.FC<{ serviceType: ShopServiceType; price: number; p
 
 export const ShopModal: React.FC<ShopModalProps> = ({ inventory, playerState, onBuyCard, onPerformService, onClose }) => {
   const [isRemovingCard, setIsRemovingCard] = useState(false);
+  const [isUpgradingCard, setIsUpgradingCard] = useState(false);
   const [isBusy, setIsBusy] = useState(false);
 
   const handleServiceClick = (serviceType: ShopServiceType) => {
       if (serviceType === 'remove_card') {
           setIsRemovingCard(true);
-      } else {
-          // onPerformService(serviceType); // Para futuros servicios
+      } else if (serviceType === 'upgrade_card') {
+          setIsUpgradingCard(true);
+      } else if (serviceType === 'repair_hull') {
+          const service = inventory.services.find(s => s.type === 'repair_hull')!;
+          onPerformService('repair_hull', service.price);
       }
   };
 
   const handleRemoveCard = (cardInstanceId: string) => {
-      onPerformService('remove_card', cardInstanceId);
+      const service = inventory.services.find(s => s.type === 'remove_card')!;
+      onPerformService('remove_card', service.price, cardInstanceId);
       setIsRemovingCard(false);
   };
-  
+
+  const handleUpgradeCard = (cardInstanceId: string) => {
+      const service = inventory.services.find(s => s.type === 'upgrade_card')!;
+      onPerformService('upgrade_card', service.price, cardInstanceId);
+      setIsUpgradingCard(false);
+  };
+
   if (isRemovingCard) {
       const service = inventory.services.find(s => s.type === 'remove_card')!;
       return (
@@ -130,6 +141,32 @@ export const ShopModal: React.FC<ShopModalProps> = ({ inventory, playerState, on
                   })}
               </div>
               <button onClick={() => setIsRemovingCard(false)} className="mt-6 mb-4 px-6 py-2 bg-red-600 hover:bg-red-500 rounded-lg font-bold text-white">
+                  Cancelar
+              </button>
+          </div>
+      );
+  }
+
+  if (isUpgradingCard) {
+      const service = inventory.services.find(s => s.type === 'upgrade_card')!;
+      const upgradeable = playerState.deck.filter(c => !c.affix);
+      return (
+          <div className="fixed inset-0 z-40 bg-gray-900/95 flex flex-col items-center p-4 animate-zoom-in-fade">
+              <h2 className="text-3xl font-orbitron text-cyan-300 mt-4 mb-2">Mejorar Carta</h2>
+              <p className="text-gray-300 mb-2">Haz doble clic para mejorar una carta (-1 coste, +2 efecto) por {service.price} créditos.</p>
+              <p className="text-gray-500 text-sm mb-6">Solo cartas sin modificador. Las cartas ya mejoradas están atenuadas.</p>
+              <div className="w-full max-w-7xl flex-grow overflow-y-auto p-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7 gap-4">
+                  {playerState.deck.map((cardInstance) => {
+                      const canAfford = playerState.credits >= service.price;
+                      const isEligible = !cardInstance.affix;
+                      return (
+                          <div key={cardInstance.instanceId} className={`flex flex-col items-center gap-1 ${!isEligible ? 'opacity-40' : ''}`}>
+                              <Card cardInstance={cardInstance} onClick={() => {}} onDoubleClick={canAfford && isEligible ? () => handleUpgradeCard(cardInstance.instanceId) : undefined} disabled={!canAfford || !isEligible} />
+                          </div>
+                      );
+                  })}
+              </div>
+              <button onClick={() => setIsUpgradingCard(false)} className="mt-6 mb-4 px-6 py-2 bg-red-600 hover:bg-red-500 rounded-lg font-bold text-white">
                   Cancelar
               </button>
           </div>
