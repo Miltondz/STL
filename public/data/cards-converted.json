@@ -1,114 +1,53 @@
 {
-  "version": "1.0.0",
+  "version": "2.0.0",
   "metadata": {
-    "title": "Navegador Gal├íctico - Cards Database",
-    "author": "Conversion Script",
-    "lastModified": "2025-10-29T21:16:58.659Z",
-    "source": "data/cards.ts",
-    "gameVersion": "0.1.0"
-  },
-  "affixes": {
-    "EFFICIENT": {
-      "name": "Eficiente",
-      "description": "Cuesta 1 menos de Energ├¡a.",
-      "costModifier": -1
-    },
-    "CALIBRATED": {
-      "name": "Calibrado",
-      "description": "Inflige 2 de da├▒o adicional.",
-      "valueModifier": 2
-    },
-    "REINFORCED": {
-      "name": "Reforzado",
-      "description": "Otorga 3 de escudo adicional.",
-      "valueModifier": 3
-    }
+    "title": "Navegador Galáctico - Brasas del Vacío",
+    "author": "Game Developer",
+    "lastModified": "2026-05-29T00:00:00.000Z",
+    "gameVersion": "2.0.0"
   },
   "cards": [
     {
       "id": "BASE_DISPARO01",
-      "name": "Disparo B├ísico",
+      "name": "Disparo Básico",
       "type": "Attack",
-      "subtype": "Resource",
+      "subtype": "Starter",
       "cost": 1,
       "price": 0,
-      "rarity": "Common",
+      "rarity": "Inicial",
       "faction": "Neutral",
-      "description": "Inflige 5 de da├▒o.",
-      "image": "https://i.ibb.co/ZpWdhy4r/ataque-00-placeholder.jpg",
-      "availability": "always",
-      "effects": [
-        {
-          "id": "EFFECT_DAMAGE",
-          "category": "combat",
-          "params": {
-            "value": 5,
-            "effectType": "EFFECT_DAMAGE"
-          }
-        }
-      ],
-      "metadata": {
-        "possibleAffixes": [
-          "EFFICIENT",
-          "CALIBRATED"
-        ],
-        "effectBase": "EFFECT_DAMAGE",
-        "value": 5
-      }
+      "description": "Inflige 5 de daño.",
+      "effectBase": "EFFECT_DAMAGE",
+      "value": 5,
+      "upgradedVersion": { "value": 8, "description": "Inflige 8 de daño." },
+      "image": "https://i.ibb.co/ZpWdhy4r/ataque-00-placeholder.jpg"
     },
     {
       "id": "BASE_MANIOBRA01",
-      "name": "Maniobra R├ípida",
+      "name": "Maniobra Rápida",
       "type": "Skill",
-      "subtype": "Defense/Utility",
+      "subtype": "Starter",
       "cost": 1,
       "price": 0,
-      "rarity": "Common",
+      "rarity": "Inicial",
       "faction": "Neutral",
-      "description": "Gana 2 Maniobra. Si tu mano est├í vac├¡a despu├®s de jugar, roba 1 carta.",
-      "image": "https://i.ibb.co/RkVgnQ5s/maniobra-00-placeholder.jpg",
-      "availability": "always",
-      "effects": [
-        {
-          "id": "EFFECT_GAIN_MANIOBRA_2",
-          "category": "utility",
-          "params": {
-            "value": 0,
-            "effectType": "EFFECT_GAIN_MANIOBRA_2"
-          }
-        }
-      ],
-      "metadata": {
-        "possibleAffixes": [],
-        "effectBase": "EFFECT_GAIN_MANIOBRA_2"
-      }
+      "description": "Gana 2 Maniobra. Si tu mano está vacía después de jugar, roba 1 carta.",
+      "effectBase": "EFFECT_GAIN_MANIOBRA_2",
+      "upgradedVersion": { "cost": 0, "description": "Gana 2 Maniobra. Si tu mano está vacía después de jugar, roba 1 carta." },
+      "image": "https://i.ibb.co/RkVgnQ5s/maniobra-00-placeholder.jpg"
     },
     {
       "id": "BASE_OPERACIONES01",
       "name": "Operaciones Novato",
       "type": "Skill",
-      "subtype": "Economy",
+      "subtype": "Starter",
       "cost": 0,
       "price": 0,
-      "rarity": "Common",
+      "rarity": "Inicial",
       "faction": "Neutral",
-      "description": "Gana 1 Cr├®dito.",
-      "image": "https://i.ibb.co/6RqKYvT8/tripulacion-00-placeholder.jpg",
-      "availability": "always",
-      "effects": [
-        {
-          "id": "EFFECT_GAIN_CREDITO_1",
-          "category": "utility",
-          "params": {
-            "value": 0,
-            "effectType": "EFFECT_GAIN_CREDITO_1"
-          }
-        }
-      ],
-      "metadata": {
-        "possibleAffixes": [],
-        "effectBase": "EFFECT_GAIN_CREDITO_1"
-      }
+      "description": "Gana 1 Crédito.",
+      "effectBase": "EFFECT_GAIN_CREDITO_1",
+      "image": "https://i.ibb.co/6RqKYvT8/tripulacion-00-placeholder.jpg"
     },
     {
       "id": "CREW_TRIPULANTE_NOVATO",
@@ -119,168 +58,9 @@
       "price": 0,
       "rarity": "Inicial",
       "faction": "Neutral",
-      "description": "Inexperto. P Sinergia: Entrenable con experiencia",
-      "image": "https://i.ibb.co/5g11MsYp/tripulacion-23-recluta.jpg",
-      "availability": "always",
-      "effects": [
-        {
-          "id": "CREW_BASIC",
-          "category": "crew",
-          "params": {
-            "value": 0,
-            "effectType": "CREW_BASIC"
-          }
-        }
-      ],
-      "metadata": {
-        "possibleAffixes": [],
-        "effectBase": "CREW_BASIC"
-      }
-    },
-    {
-      "id": "ATTACK_1",
-      "name": "Ataque de Ca├▒├│n",
-      "type": "Attack",
-      "subtype": null,
-      "cost": 1,
-      "price": 6,
-      "rarity": "Common",
-      "faction": "Neutral",
-      "description": "Inflige 6 de da├▒o.",
-      "image": "https://i.ibb.co/ZpWdhy4r/ataque-00-placeholder.jpg",
-      "availability": "shop",
-      "effects": [
-        {
-          "id": "EFFECT_DAMAGE",
-          "category": "combat",
-          "params": {
-            "value": 6,
-            "effectType": "EFFECT_DAMAGE"
-          }
-        }
-      ],
-      "metadata": {
-        "possibleAffixes": [
-          "EFFICIENT",
-          "CALIBRATED"
-        ],
-        "effectBase": "EFFECT_DAMAGE",
-        "value": 6
-      }
-    },
-    {
-      "id": "DEFEND_1",
-      "name": "Escudos Arriba",
-      "type": "Skill",
-      "subtype": null,
-      "cost": 1,
-      "price": 7,
-      "rarity": "Common",
-      "faction": "Neutral",
-      "description": "Gana 5 de escudo.",
-      "image": "https://i.ibb.co/Nd4qVMwp/defensa-00-placeholder.jpg",
-      "availability": "shop",
-      "effects": [
-        {
-          "id": "EFFECT_SHIELD",
-          "category": "utility",
-          "params": {
-            "value": 5,
-            "effectType": "EFFECT_SHIELD"
-          }
-        }
-      ],
-      "metadata": {
-        "possibleAffixes": [
-          "EFFICIENT",
-          "REINFORCED"
-        ],
-        "effectBase": "EFFECT_SHIELD",
-        "value": 5
-      }
-    },
-    {
-      "id": "REPAIR_1",
-      "name": "Reparaci├│n R├ípida",
-      "type": "Skill",
-      "subtype": null,
-      "cost": 2,
-      "price": 8,
-      "rarity": "Common",
-      "faction": "Neutral",
-      "description": "Repara 7 de casco.",
-      "image": "https://i.ibb.co/4R6XDJ6G/mejora-nave-00-placeholder.jpg",
-      "availability": "shop",
-      "effects": [
-        {
-          "id": "EFFECT_REPAIR",
-          "category": "utility",
-          "params": {
-            "value": 7,
-            "effectType": "EFFECT_REPAIR"
-          }
-        }
-      ],
-      "metadata": {
-        "possibleAffixes": [],
-        "effectBase": "EFFECT_REPAIR",
-        "value": 7
-      }
-    },
-    {
-      "id": "ENERGY_1",
-      "name": "Sobrecarga",
-      "type": "Skill",
-      "subtype": null,
-      "cost": 0,
-      "price": 10,
-      "rarity": "Uncommon",
-      "faction": "Neutral",
-      "description": "Gana 1 de Energ├¡a.",
-      "image": "https://i.ibb.co/DPpZ9LtD/equipos-00-placeholder.jpg",
-      "availability": "shop",
-      "effects": [
-        {
-          "id": "EFFECT_ENERGY_1",
-          "category": "utility",
-          "params": {
-            "value": 0,
-            "effectType": "EFFECT_ENERGY_1"
-          }
-        }
-      ],
-      "metadata": {
-        "possibleAffixes": [],
-        "effectBase": "EFFECT_ENERGY_1"
-      }
-    },
-    {
-      "id": "BASE_REPARACION01",
-      "name": "Reparaci├│n de Emergencia",
-      "type": "Skill",
-      "subtype": "Repair",
-      "cost": 0,
-      "price": 15,
-      "rarity": "Rare",
-      "faction": "Neutral",
-      "description": "Repara 5 de Casco. Exiliar.",
-      "image": "https://i.ibb.co/4R6XDJ6G/mejora-nave-00-placeholder.jpg",
-      "availability": "shop",
-      "effects": [
-        {
-          "id": "EFFECT_HEAL_HULL_AND_EXILE",
-          "category": "utility",
-          "params": {
-            "value": 5,
-            "effectType": "EFFECT_HEAL_HULL_AND_EXILE"
-          }
-        }
-      ],
-      "metadata": {
-        "possibleAffixes": [],
-        "effectBase": "EFFECT_HEAL_HULL_AND_EXILE",
-        "value": 5
-      }
+      "description": "Inexperto. Sinergia: Entrenable con experiencia.",
+      "effectBase": "CREW_BASIC",
+      "image": "https://i.ibb.co/5g11MsYp/tripulacion-23-recluta.jpg"
     },
     {
       "id": "CREW_KAELEN_INGENIERO",
@@ -291,23 +71,9 @@
       "price": 8,
       "rarity": "Uncommon",
       "faction": "Tecno-Gremio",
-      "description": "Novato. A Sinergia: Tecno-Gremio",
-      "image": "https://i.ibb.co/Q38fqKXC/tripulacion-21-ingeniero-veterano.jpg",
-      "availability": "shop",
-      "effects": [
-        {
-          "id": "CREW_BASIC",
-          "category": "crew",
-          "params": {
-            "value": 0,
-            "effectType": "CREW_BASIC"
-          }
-        }
-      ],
-      "metadata": {
-        "possibleAffixes": [],
-        "effectBase": "CREW_BASIC"
-      }
+      "description": "Novato. Sinergia: Tecno-Gremio.",
+      "effectBase": "CREW_BASIC",
+      "image": "https://i.ibb.co/Q38fqKXC/tripulacion-21-ingeniero-veterano.jpg"
     },
     {
       "id": "CREW_ZARA_ARTILLERA",
@@ -318,23 +84,9 @@
       "price": 10,
       "rarity": "Rare",
       "faction": "Mercenarios",
-      "description": "Experimentada. A Sinergia: Mercenarios",
-      "image": "https://i.ibb.co/nqNdsz8R/tripulacion-20-comandante.jpg",
-      "availability": "shop",
-      "effects": [
-        {
-          "id": "CREW_BASIC",
-          "category": "crew",
-          "params": {
-            "value": 0,
-            "effectType": "CREW_BASIC"
-          }
-        }
-      ],
-      "metadata": {
-        "possibleAffixes": [],
-        "effectBase": "CREW_BASIC"
-      }
+      "description": "Experimentada. Sinergia: Mercenarios.",
+      "effectBase": "CREW_BASIC",
+      "image": "https://i.ibb.co/nqNdsz8R/tripulacion-20-comandante.jpg"
     },
     {
       "id": "CREW_GLITCH_SABOTEADOR",
@@ -345,50 +97,22 @@
       "price": 9,
       "rarity": "Rare",
       "faction": "Hacktivistas",
-      "description": "Infiltrador. A Sinergia: Hacktivistas",
-      "image": "https://i.ibb.co/ymc2HTLg/tripulacion-25-psiquica.jpg",
-      "availability": "shop",
-      "effects": [
-        {
-          "id": "CREW_BASIC",
-          "category": "crew",
-          "params": {
-            "value": 0,
-            "effectType": "CREW_BASIC"
-          }
-        }
-      ],
-      "metadata": {
-        "possibleAffixes": [],
-        "effectBase": "CREW_BASIC"
-      }
+      "description": "Infiltrador. Sinergia: Hacktivistas.",
+      "effectBase": "CREW_BASIC",
+      "image": "https://i.ibb.co/ymc2HTLg/tripulacion-25-psiquica.jpg"
     },
     {
       "id": "CREW_DR_ARIS_THORN",
       "name": "Dr. Aris Thorn",
       "type": "Crew",
-      "subtype": "Cient├¡fico",
+      "subtype": "Científico",
       "cost": 0,
       "price": 7,
       "rarity": "Common",
       "faction": "Academia",
-      "description": "Investigador. P Sinergia: Academia",
-      "image": "https://i.ibb.co/3nRbvQ0/tripulacion-24-ploto-veterano.jpg",
-      "availability": "shop",
-      "effects": [
-        {
-          "id": "CREW_BASIC",
-          "category": "crew",
-          "params": {
-            "value": 0,
-            "effectType": "CREW_BASIC"
-          }
-        }
-      ],
-      "metadata": {
-        "possibleAffixes": [],
-        "effectBase": "CREW_BASIC"
-      }
+      "description": "Investigador. Sinergia: Academia.",
+      "effectBase": "CREW_BASIC",
+      "image": "https://i.ibb.co/3nRbvQ0/tripulacion-24-ploto-veterano.jpg"
     },
     {
       "id": "CREW_CAPITANA_VEX",
@@ -399,23 +123,9 @@
       "price": 12,
       "rarity": "Rare",
       "faction": "Mercenarios",
-      "description": "Oficial. P Sinergia: Mercenarios",
-      "image": "https://i.ibb.co/nqNdsz8R/tripulacion-20-comandante.jpg",
-      "availability": "shop",
-      "effects": [
-        {
-          "id": "CREW_BASIC",
-          "category": "crew",
-          "params": {
-            "value": 0,
-            "effectType": "CREW_BASIC"
-          }
-        }
-      ],
-      "metadata": {
-        "possibleAffixes": [],
-        "effectBase": "CREW_BASIC"
-      }
+      "description": "Oficial. Sinergia: Mercenarios.",
+      "effectBase": "CREW_BASIC",
+      "image": "https://i.ibb.co/nqNdsz8R/tripulacion-20-comandante.jpg"
     },
     {
       "id": "CREW_ZYX_COMERCIANTE",
@@ -426,23 +136,9 @@
       "price": 6,
       "rarity": "Common",
       "faction": "Comerciante",
-      "description": "Novato. P Sinergia: Comerciante",
-      "image": "https://i.ibb.co/3nRbvQ0/tripulacion-24-ploto-veterano.jpg",
-      "availability": "shop",
-      "effects": [
-        {
-          "id": "CREW_BASIC",
-          "category": "crew",
-          "params": {
-            "value": 0,
-            "effectType": "CREW_BASIC"
-          }
-        }
-      ],
-      "metadata": {
-        "possibleAffixes": [],
-        "effectBase": "CREW_BASIC"
-      }
+      "description": "Novato. Sinergia: Comerciante.",
+      "effectBase": "CREW_BASIC",
+      "image": "https://i.ibb.co/3nRbvQ0/tripulacion-24-ploto-veterano.jpg"
     },
     {
       "id": "CREW_ECHO_PILOTO",
@@ -453,51 +149,402 @@
       "price": 9,
       "rarity": "Uncommon",
       "faction": "Neutral",
-      "description": "Competente. A Habilidades de pilotaje superior",
-      "image": "https://i.ibb.co/3Yp47NWk/tripulacion-22-piloto-estrella.jpg",
-      "availability": "shop",
-      "effects": [
-        {
-          "id": "CREW_BASIC",
-          "category": "crew",
-          "params": {
-            "value": 0,
-            "effectType": "CREW_BASIC"
-          }
-        }
-      ],
-      "metadata": {
-        "possibleAffixes": [],
-        "effectBase": "CREW_BASIC"
-      }
+      "description": "Competente. Habilidades de pilotaje superior.",
+      "effectBase": "CREW_BASIC",
+      "image": "https://i.ibb.co/3Yp47NWk/tripulacion-22-piloto-estrella.jpg"
     },
     {
       "id": "CREW_NYX_PSIQUICA",
-      "name": "Nyx, Ps├¡quica",
+      "name": "Nyx, Psíquica",
       "type": "Crew",
-      "subtype": "Ps├¡quico",
+      "subtype": "Psíquico",
       "cost": 0,
       "price": 11,
       "rarity": "Rare",
       "faction": "Academia",
-      "description": "Iniciada. A Sinergia: Academia",
-      "image": "https://i.ibb.co/ymc2HTLg/tripulacion-25-psiquica.jpg",
-      "availability": "shop",
-      "effects": [
-        {
-          "id": "CREW_BASIC",
-          "category": "crew",
-          "params": {
-            "value": 0,
-            "effectType": "CREW_BASIC"
-          }
-        }
-      ],
-      "metadata": {
-        "possibleAffixes": [],
-        "effectBase": "CREW_BASIC"
-      }
+      "description": "Iniciada. Sinergia: Academia.",
+      "effectBase": "CREW_BASIC",
+      "image": "https://i.ibb.co/ymc2HTLg/tripulacion-25-psiquica.jpg"
+    },
+    {
+      "id": "ATTACK_INCENDIARY_SALVO",
+      "name": "Salva Incendiaria",
+      "type": "Attack",
+      "cost": 1,
+      "price": 16,
+      "rarity": "Common",
+      "faction": "Mercenarios",
+      "description": "Inflige 2 de daño 2 veces y aplica 2 de Incendio al enemigo.",
+      "effectBase": "EFFECT_DAMAGE_AND_BURN",
+      "value": 2,
+      "hits": 2,
+      "upgradedVersion": { "value": 3, "description": "Inflige 3 de daño 2 veces y aplica 2 de Incendio al enemigo." },
+      "image": "https://i.ibb.co/ZpWdhy4r/ataque-00-placeholder.jpg"
+    },
+    {
+      "id": "ATTACK_PYROCLASM",
+      "name": "Piroclasmo",
+      "type": "Attack",
+      "cost": 2,
+      "price": 24,
+      "rarity": "Uncommon",
+      "faction": "Neutral",
+      "description": "Inflige 5 de daño y aplica 2 de Incendio al enemigo.",
+      "effectBase": "EFFECT_DAMAGE_AND_BURN",
+      "value": 5,
+      "upgradedVersion": { "value": 8, "description": "Inflige 8 de daño y aplica 2 de Incendio al enemigo." },
+      "image": "https://i.ibb.co/ZpWdhy4r/ataque-00-placeholder.jpg"
+    },
+    {
+      "id": "ATTACK_OVERHEATING_BEAM",
+      "name": "Rayo Sobrecargado",
+      "type": "Attack",
+      "cost": 1,
+      "price": 18,
+      "rarity": "Uncommon",
+      "faction": "Tecno-Gremio",
+      "description": "Inflige 3 de daño y aplica 2 de Fuga de Plasma al enemigo.",
+      "effectBase": "EFFECT_DAMAGE_AND_PLASMA_LEAK",
+      "value": 3,
+      "upgradedVersion": { "value": 5, "description": "Inflige 5 de daño y aplica 2 de Fuga de Plasma al enemigo." },
+      "image": "https://i.ibb.co/ZpWdhy4r/ataque-00-placeholder.jpg"
+    },
+    {
+      "id": "SKILL_CASCADE_IGNITION",
+      "name": "Ignición en Cascada",
+      "type": "Skill",
+      "cost": 1,
+      "price": 20,
+      "rarity": "Uncommon",
+      "faction": "Neutral",
+      "description": "Aplica 4 de Incendio al enemigo.",
+      "effectBase": "EFFECT_APPLY_STATUS",
+      "value": 4,
+      "statusApply": { "target": "ENEMY", "status": "BURN" },
+      "upgradedVersion": { "value": 6, "description": "Aplica 6 de Incendio al enemigo." },
+      "image": "https://i.ibb.co/DPpZ9LtD/equipos-00-placeholder.jpg"
+    },
+    {
+      "id": "ATTACK_PLASMA_LANCE",
+      "name": "Lanza de Plasma",
+      "type": "Attack",
+      "cost": 2,
+      "price": 26,
+      "rarity": "Rare",
+      "faction": "Tecno-Gremio",
+      "description": "Inflige 4 de daño 2 veces y aplica 2 de Fuga de Plasma al enemigo.",
+      "effectBase": "EFFECT_DAMAGE_AND_PLASMA_LEAK",
+      "value": 4,
+      "hits": 2,
+      "upgradedVersion": { "value": 6, "description": "Inflige 6 de daño 2 veces y aplica 2 de Fuga de Plasma al enemigo." },
+      "image": "https://i.ibb.co/ZpWdhy4r/ataque-00-placeholder.jpg"
+    },
+    {
+      "id": "SKILL_HEAT_SINK_FAILURE",
+      "name": "Falla de Disipadores",
+      "type": "Skill",
+      "cost": 2,
+      "price": 30,
+      "rarity": "Rare",
+      "faction": "Hacktivistas",
+      "description": "Aplica 5 de Incendio al enemigo. Exhaust.",
+      "effectBase": "EFFECT_APPLY_STATUS",
+      "keywords": ["EXHAUST"],
+      "value": 5,
+      "statusApply": { "target": "ENEMY", "status": "BURN" },
+      "upgradedVersion": { "cost": 1, "description": "Aplica 5 de Incendio al enemigo. Exhaust." },
+      "image": "https://i.ibb.co/DPpZ9LtD/equipos-00-placeholder.jpg"
+    },
+    {
+      "id": "ATTACK_VOLCANIC_BARRAGE",
+      "name": "Bombardeo Volcánico",
+      "type": "Attack",
+      "cost": 3,
+      "price": 38,
+      "rarity": "Rare",
+      "faction": "Mercenarios",
+      "description": "Inflige 4 de daño 3 veces y aplica 2 de Incendio al enemigo.",
+      "effectBase": "EFFECT_DAMAGE_AND_BURN",
+      "value": 4,
+      "hits": 3,
+      "upgradedVersion": { "value": 5, "description": "Inflige 5 de daño 3 veces y aplica 2 de Incendio al enemigo." },
+      "image": "https://i.ibb.co/ZpWdhy4r/ataque-00-placeholder.jpg"
+    },
+    {
+      "id": "CURSE_PLASMA_BLEED",
+      "name": "Maldición: Hemorragia de Plasma",
+      "type": "Skill",
+      "subtype": "Curse",
+      "cost": 0,
+      "price": 0,
+      "rarity": "Curse",
+      "faction": "Neutral",
+      "description": "No jugable. Al inicio de tu turno, recibe 2 de daño.",
+      "effectBase": "EFFECT_NONE",
+      "keywords": ["UNPLAYABLE"]
+    },
+    {
+      "id": "SKILL_BULWARK_PLATING",
+      "name": "Blindaje Reforzado",
+      "type": "Skill",
+      "cost": 1,
+      "price": 16,
+      "rarity": "Common",
+      "faction": "Neutral",
+      "description": "Gana 8 de escudo.",
+      "effectBase": "EFFECT_SHIELD",
+      "value": 8,
+      "upgradedVersion": { "value": 11, "description": "Gana 11 de escudo." },
+      "image": "https://i.ibb.co/Nd4qVMwp/defensa-00-placeholder.jpg"
+    },
+    {
+      "id": "SKILL_REINFORCED_BULKHEAD",
+      "name": "Mamparo Reforzado",
+      "type": "Skill",
+      "cost": 1,
+      "price": 18,
+      "rarity": "Uncommon",
+      "faction": "Neutral",
+      "description": "Gana 5 de escudo. Retener.",
+      "effectBase": "EFFECT_SHIELD",
+      "keywords": ["RETAIN"],
+      "value": 5,
+      "upgradedVersion": { "value": 8, "description": "Gana 8 de escudo. Retener." },
+      "image": "https://i.ibb.co/Nd4qVMwp/defensa-00-placeholder.jpg"
+    },
+    {
+      "id": "SKILL_EMERGENCY_PATCH",
+      "name": "Parche de Emergencia",
+      "type": "Skill",
+      "cost": 1,
+      "price": 18,
+      "rarity": "Common",
+      "faction": "Tecno-Gremio",
+      "description": "Repara 4 de Casco y gana 3 de escudo.",
+      "effectBase": "EFFECT_REPAIR_AND_SHIELD",
+      "value": 4,
+      "upgradedVersion": { "value": 7, "description": "Repara 7 de Casco y gana 3 de escudo." },
+      "image": "https://i.ibb.co/4R6XDJ6G/mejora-nave-00-placeholder.jpg"
+    },
+    {
+      "id": "SKILL_GHOST_PROTOCOL",
+      "name": "Protocolo Fantasma",
+      "type": "Skill",
+      "cost": 1,
+      "price": 22,
+      "rarity": "Uncommon",
+      "faction": "Hacktivistas",
+      "description": "Gana Sigilo: el enemigo salta su próxima acción de ataque. Exhaust.",
+      "effectBase": "EFFECT_APPLY_STATUS",
+      "keywords": ["EXHAUST"],
+      "value": 1,
+      "statusApply": { "target": "SELF", "status": "STEALTH" },
+      "upgradedVersion": { "cost": 0, "description": "Gana Sigilo: el enemigo salta su próxima acción de ataque. Exhaust." },
+      "image": "https://i.ibb.co/RkVgnQ5s/maniobra-00-placeholder.jpg"
+    },
+    {
+      "id": "SKILL_KINETIC_BARRIER",
+      "name": "Barrera Cinética",
+      "type": "Skill",
+      "cost": 2,
+      "price": 26,
+      "rarity": "Rare",
+      "faction": "Neutral",
+      "description": "Gana 12 de escudo. Retener.",
+      "effectBase": "EFFECT_SHIELD",
+      "keywords": ["RETAIN"],
+      "value": 12,
+      "upgradedVersion": { "value": 16, "description": "Gana 16 de escudo. Retener." },
+      "image": "https://i.ibb.co/Nd4qVMwp/defensa-00-placeholder.jpg"
+    },
+    {
+      "id": "ATTACK_SHIELD_BASH",
+      "name": "Embestida de Escudos",
+      "type": "Attack",
+      "cost": 1,
+      "price": 16,
+      "rarity": "Common",
+      "faction": "Mercenarios",
+      "description": "Inflige daño igual a tu escudo actual, hasta 8.",
+      "effectBase": "EFFECT_DAMAGE_FROM_SHIELD",
+      "value": 8,
+      "upgradedVersion": { "value": 12, "description": "Inflige daño igual a tu escudo actual, hasta 12." },
+      "image": "https://i.ibb.co/ZpWdhy4r/ataque-00-placeholder.jpg"
+    },
+    {
+      "id": "SKILL_REGENERATION_FIELD",
+      "name": "Campo de Regeneración",
+      "type": "Skill",
+      "cost": 2,
+      "price": 32,
+      "rarity": "Rare",
+      "faction": "Academia",
+      "description": "Repara 10 de Casco. Exhaust.",
+      "effectBase": "EFFECT_REPAIR",
+      "keywords": ["EXHAUST"],
+      "value": 10,
+      "upgradedVersion": { "value": 16, "description": "Repara 16 de Casco. Exhaust." },
+      "image": "https://i.ibb.co/4R6XDJ6G/mejora-nave-00-placeholder.jpg"
+    },
+    {
+      "id": "SKILL_SYSTEM_HACK",
+      "name": "Hackeo de Sistemas",
+      "type": "Skill",
+      "cost": 1,
+      "price": 16,
+      "rarity": "Common",
+      "faction": "Hacktivistas",
+      "description": "Aplica 3 de Sobrecalentamiento al enemigo (-25% daño infligido por 3 turnos).",
+      "effectBase": "EFFECT_APPLY_OVERHEAT",
+      "value": 3,
+      "upgradedVersion": { "value": 4, "description": "Aplica 4 de Sobrecalentamiento al enemigo." },
+      "image": "https://i.ibb.co/DPpZ9LtD/equipos-00-placeholder.jpg"
+    },
+    {
+      "id": "SKILL_DISRUPTOR_PULSE",
+      "name": "Pulso Disruptor",
+      "type": "Skill",
+      "cost": 1,
+      "price": 22,
+      "rarity": "Uncommon",
+      "faction": "Hacktivistas",
+      "description": "Aplica Atasco al enemigo: no puede atacar el próximo turno.",
+      "effectBase": "EFFECT_APPLY_STATUS",
+      "value": 1,
+      "statusApply": { "target": "ENEMY", "status": "JAMMED" },
+      "upgradedVersion": { "cost": 0, "description": "Aplica Atasco al enemigo: no puede atacar el próximo turno." },
+      "image": "https://i.ibb.co/DPpZ9LtD/equipos-00-placeholder.jpg"
+    },
+    {
+      "id": "ATTACK_PRECISION_VOLLEY",
+      "name": "Salva de Precisión",
+      "type": "Attack",
+      "cost": 2,
+      "price": 22,
+      "rarity": "Uncommon",
+      "faction": "Tecno-Gremio",
+      "description": "Inflige 2 de daño 4 veces.",
+      "effectBase": "EFFECT_DAMAGE",
+      "value": 2,
+      "hits": 4,
+      "upgradedVersion": { "value": 3, "description": "Inflige 3 de daño 4 veces." },
+      "image": "https://i.ibb.co/ZpWdhy4r/ataque-00-placeholder.jpg"
+    },
+    {
+      "id": "SKILL_TARGET_PAINTER",
+      "name": "Marcador Láser",
+      "type": "Skill",
+      "cost": 0,
+      "price": 20,
+      "rarity": "Uncommon",
+      "faction": "Mercenarios",
+      "description": "Aplica 2 de Brecha en Casco al enemigo y roba 1 carta. Exhaust.",
+      "effectBase": "EFFECT_HULL_BREACH_AND_DRAW",
+      "keywords": ["EXHAUST"],
+      "value": 2,
+      "upgradedVersion": { "value": 3, "description": "Aplica 3 de Brecha en Casco al enemigo y roba 1 carta. Exhaust." },
+      "image": "https://i.ibb.co/DPpZ9LtD/equipos-00-placeholder.jpg"
+    },
+    {
+      "id": "ATTACK_SABOTAGE_STRIKE",
+      "name": "Golpe Saboteador",
+      "type": "Attack",
+      "cost": 2,
+      "price": 24,
+      "rarity": "Uncommon",
+      "faction": "Hacktivistas",
+      "description": "Inflige 4 de daño. Aplica 2 de Brecha en Casco y 2 de Sobrecalentamiento al enemigo.",
+      "effectBase": "EFFECT_DAMAGE_AND_DOUBLE_DEBUFF",
+      "value": 4,
+      "upgradedVersion": { "value": 6, "description": "Inflige 6 de daño. Aplica 2 de Brecha en Casco y 2 de Sobrecalentamiento." },
+      "image": "https://i.ibb.co/ZpWdhy4r/ataque-00-placeholder.jpg"
+    },
+    {
+      "id": "SKILL_OVERLOAD_VIRUS",
+      "name": "Virus de Sobrecarga",
+      "type": "Skill",
+      "cost": 2,
+      "price": 30,
+      "rarity": "Rare",
+      "faction": "Hacktivistas",
+      "description": "Aplica 3 de Brecha en Casco y 3 de Sobrecalentamiento al enemigo. Exhaust.",
+      "effectBase": "EFFECT_DOUBLE_DEBUFF",
+      "keywords": ["EXHAUST"],
+      "value": 3,
+      "upgradedVersion": { "value": 4, "description": "Aplica 4 de Brecha en Casco y 4 de Sobrecalentamiento al enemigo. Exhaust." },
+      "image": "https://i.ibb.co/DPpZ9LtD/equipos-00-placeholder.jpg"
+    },
+    {
+      "id": "ATTACK_CHAIN_DISCHARGE",
+      "name": "Descarga en Cadena",
+      "type": "Attack",
+      "cost": 1,
+      "price": 24,
+      "rarity": "Rare",
+      "faction": "Tecno-Gremio",
+      "description": "Inflige 3 de daño 3 veces. Etéreo.",
+      "effectBase": "EFFECT_DAMAGE",
+      "value": 3,
+      "hits": 3,
+      "keywords": ["ETHEREAL"],
+      "upgradedVersion": { "value": 4, "description": "Inflige 4 de daño 3 veces. Etéreo." },
+      "image": "https://i.ibb.co/ZpWdhy4r/ataque-00-placeholder.jpg"
+    },
+    {
+      "id": "SKILL_CARGO_DUMP",
+      "name": "Descarga de Carga",
+      "type": "Skill",
+      "cost": 0,
+      "price": 14,
+      "rarity": "Common",
+      "faction": "Comerciante",
+      "description": "Roba 2 cartas. Exhaust.",
+      "effectBase": "EFFECT_DRAW_2",
+      "keywords": ["EXHAUST"],
+      "image": "https://i.ibb.co/6RqKYvT8/tripulacion-00-placeholder.jpg"
+    },
+    {
+      "id": "SKILL_QUANTUM_BATTERY",
+      "name": "Batería Cuántica",
+      "type": "Skill",
+      "cost": 1,
+      "price": 28,
+      "rarity": "Rare",
+      "faction": "Academia",
+      "description": "Gana 2 de Energía. Exhaust.",
+      "effectBase": "EFFECT_ENERGY_GAIN",
+      "keywords": ["EXHAUST"],
+      "value": 2,
+      "upgradedVersion": { "cost": 0, "description": "Gana 2 de Energía. Exhaust." },
+      "image": "https://i.ibb.co/DPpZ9LtD/equipos-00-placeholder.jpg"
+    },
+    {
+      "id": "SKILL_FUEL_REROUTE",
+      "name": "Redirección de Combustible",
+      "type": "Skill",
+      "cost": 1,
+      "price": 22,
+      "rarity": "Uncommon",
+      "faction": "Neutral",
+      "description": "Gana 2 de Energía. Exhaust.",
+      "effectBase": "EFFECT_ENERGY_GAIN",
+      "keywords": ["EXHAUST"],
+      "value": 2,
+      "upgradedVersion": { "cost": 0, "description": "Gana 2 de Energía. Exhaust." },
+      "image": "https://i.ibb.co/DPpZ9LtD/equipos-00-placeholder.jpg"
+    },
+    {
+      "id": "CURSE_DEAD_WEIGHT",
+      "name": "Maldición: Peso Muerto",
+      "type": "Skill",
+      "subtype": "Curse",
+      "cost": 0,
+      "price": 0,
+      "rarity": "Curse",
+      "faction": "Neutral",
+      "description": "No jugable. Etéreo. (Se exilia automáticamente al final del turno.)",
+      "effectBase": "EFFECT_NONE",
+      "keywords": ["UNPLAYABLE", "ETHEREAL"]
     }
   ]
 }
-

@@ -462,12 +462,48 @@ export const playCard = (state: CombatState, cardInstanceId: string, targetId: s
             newState.actionQueue.push(createAction('APPLY_STATUS', player.id, player.id, actualValue || 2, { status: 'OVERCHARGE' }));
             break;
         case 'EFFECT_DAMAGE_AND_BURN': {
-            newState.actionQueue.push(createAction('DEAL_DAMAGE', player.id, targetId, actualValue + relicDmgBonus));
+            const burnHitCount = cardData.hits && cardData.hits > 1 ? cardData.hits : 1;
+            for (let h = 0; h < burnHitCount; h++) {
+                newState.actionQueue.push(createAction('DEAL_DAMAGE', player.id, targetId, actualValue + relicDmgBonus));
+            }
             newState.actionQueue.push(createAction('APPLY_STATUS', player.id, targetId, 2, { status: 'BURN' }));
             break;
         }
         case 'EFFECT_DRAW_1':
             newState.actionQueue.push(createAction('DRAW_CARDS', player.id, player.id, 1));
+            break;
+        case 'EFFECT_DRAW_2':
+            newState.actionQueue.push(createAction('DRAW_CARDS', player.id, player.id, 2));
+            break;
+        case 'EFFECT_ENERGY_GAIN':
+            newState.actionQueue.push(createAction('GAIN_ENERGY', player.id, player.id, actualValue || 1));
+            break;
+        case 'EFFECT_REPAIR_AND_SHIELD':
+            newState.actionQueue.push(createAction('REPAIR_HULL', player.id, player.id, actualValue));
+            newState.actionQueue.push(createAction('RECHARGE_SHIELD', player.id, player.id, 3));
+            break;
+        case 'EFFECT_DAMAGE_FROM_SHIELD': {
+            const shieldDmg = Math.min(playerMutatable.shield || 0, actualValue);
+            if (shieldDmg > 0) {
+                newState.actionQueue.push(createAction('DEAL_DAMAGE', player.id, targetId, shieldDmg + relicDmgBonus));
+            } else {
+                newState.log.push(`${player.name} no tiene escudo para la embestida.`);
+                playerMutatable.energy! += actualCost;
+            }
+            break;
+        }
+        case 'EFFECT_HULL_BREACH_AND_DRAW':
+            newState.actionQueue.push(createAction('APPLY_STATUS', player.id, targetId, actualValue || 2, { status: 'HULL_BREACH' }));
+            newState.actionQueue.push(createAction('DRAW_CARDS', player.id, player.id, 1));
+            break;
+        case 'EFFECT_DAMAGE_AND_DOUBLE_DEBUFF':
+            newState.actionQueue.push(createAction('DEAL_DAMAGE', player.id, targetId, actualValue + relicDmgBonus));
+            newState.actionQueue.push(createAction('APPLY_STATUS', player.id, targetId, 2, { status: 'HULL_BREACH' }));
+            newState.actionQueue.push(createAction('APPLY_STATUS', player.id, targetId, 2, { status: 'OVERHEAT' }));
+            break;
+        case 'EFFECT_DOUBLE_DEBUFF':
+            newState.actionQueue.push(createAction('APPLY_STATUS', player.id, targetId, actualValue || 2, { status: 'HULL_BREACH' }));
+            newState.actionQueue.push(createAction('APPLY_STATUS', player.id, targetId, actualValue || 2, { status: 'OVERHEAT' }));
             break;
         case 'EFFECT_APPLY_STATUS': {
             if (cardData.statusApply) {
@@ -477,10 +513,16 @@ export const playCard = (state: CombatState, cardInstanceId: string, targetId: s
             break;
         }
         case 'EFFECT_DAMAGE_AND_PLASMA_LEAK': {
-            newState.actionQueue.push(createAction('DEAL_DAMAGE', player.id, targetId, actualValue + relicDmgBonus));
+            const plHitCount = cardData.hits && cardData.hits > 1 ? cardData.hits : 1;
+            for (let h = 0; h < plHitCount; h++) {
+                newState.actionQueue.push(createAction('DEAL_DAMAGE', player.id, targetId, actualValue + relicDmgBonus));
+            }
             newState.actionQueue.push(createAction('APPLY_STATUS', player.id, targetId, 2, { status: 'PLASMA_LEAK' }));
             break;
         }
+        case 'EFFECT_NONE':
+            // Curses and passive cards — no effect, no energy refund
+            break;
         case 'CREW_BASIC':
             newState.log.push(`El ${cardData.name} es tripulación y no tiene efecto en combate.`);
             playerMutatable.energy! += actualCost;
