@@ -153,8 +153,21 @@ function App() {
     );
   }
 
-  const currentNode = mapData.nodes.find(n => n.id === currentNodeId)!;
-  const availableNodeIds = new Set(currentNode?.connections || []);
+  const currentNode = mapData.nodes.find(n => n.id === currentNodeId);
+  if (!currentNode) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-black">
+        <div className="text-center">
+          <h1 className="text-2xl font-orbitron text-red-500">Error de Carga</h1>
+          <p className="text-gray-400">No se pudo cargar el estado del juego. Por favor, reinicia.</p>
+          <button onClick={() => window.location.reload()} className="mt-4 px-4 py-2 bg-cyan-600 rounded">
+            Reiniciar
+          </button>
+        </div>
+      </div>
+    );
+  }
+  const availableNodeIds = new Set(currentNode.connections || []);
   const canTravel = (nodeId: number) => 
     gamePhase === 'IN_GAME' && 
     availableNodeIds.has(nodeId) && 
@@ -169,12 +182,6 @@ function App() {
             onNodeSelect={(nodeId) => canTravel(nodeId) && handleNodeSelect(nodeId)}
             playerState={playerState}
         />
-        {/* Efecto de viaje desactivado para mejor visibilidad */}
-        {false && isTraveling && (
-            <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-2xl font-orbitron">
-                VIAJANDO...
-            </div>
-        )}
       </main>
 
       <aside className="md:col-span-1 h-full min-h-0 flex flex-col gap-4">

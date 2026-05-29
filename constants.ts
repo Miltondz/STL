@@ -44,6 +44,7 @@ export const BASE_PLAYER_STATE: Omit<PlayerState, 'name' | 'fuel' | 'credits' | 
   narrativeFlags: {},
   crewAffinity: {},
   achievements: [],
+  bonusEnergy: 0,
 };
 
 

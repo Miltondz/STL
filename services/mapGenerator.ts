@@ -414,10 +414,9 @@ export const generateMap = (): MapData => {
         node.y = y_padding + (node.y / (NUM_LAYERS - 1)) * (MAP_HEIGHT - y_padding * 2) + layerJitter;
     });
 
-    // Debug planet distribution after map generation
-    setTimeout(() => {
-        debugPlanetDistribution();
-    }, 1000); // Delay to allow planet assignments to complete
-    
+    if (import.meta.env.DEV) {
+        setTimeout(() => debugPlanetDistribution(), 1000);
+    }
+
     return { nodes, startNodeId: startNode.id, endNodeId: endNode.id };
 };

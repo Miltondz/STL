@@ -8,7 +8,7 @@ import { resolveNode, resetEventCardStates } from '../services/eventManager';
 import { resetStationImageAssignments } from '../components/GalacticMap';
 import * as combatEngine from '../services/combatEngine';
 import { generateShopInventory } from '../services/shopManager';
-import { ALL_CARDS } from '../data/cards';
+import { getAllCards } from '../data';
 
 const createCardInstance = (cardId: string): CardInstance => ({
   instanceId: `${cardId}_${Date.now()}_${Math.random()}`,
@@ -53,10 +53,7 @@ export const useGameHandlers = () => {
       resetEventCardStates();
       resetStationImageAssignments(); // Reset station image assignments for new game
 
-      console.log('[DEBUG] Starting game with ship:', ship.name);
-      console.log('[DEBUG] Ship initialDeck:', ship.initialDeck);
       const initialDeck = ship.initialDeck.map(createCardInstance);
-      console.log('[DEBUG] Created deck instances:', initialDeck.length);
       const newPlayerState = {
         ...BASE_PLAYER_STATE,
         name: ship.name,
@@ -102,11 +99,16 @@ export const useGameHandlers = () => {
       setActiveEvent(resolution.card);
       setGamePhase('EVENT');
     } else if (resolution.combat) {
-      // Para nodos de batalla, ir directamente al combate sin modal PRE_COMBAT
-      const newCombat = combatEngine.createCombat(playerState, resolution.combat.enemyId, Date.now());
-      setActiveCombat(newCombat);
-      setGamePhase('COMBAT');
-      addLog(`¡Iniciando combate contra ${newCombat.combatants.find(c => !c.isPlayer)?.name}!`);
+      try {
+        const newCombat = combatEngine.createCombat(playerState, resolution.combat.enemyId, Date.now());
+        setActiveCombat(newCombat);
+        setGamePhase('COMBAT');
+        addLog(`¡Iniciando combate contra ${newCombat.combatants.find(c => !c.isPlayer)?.name}!`);
+      } catch (err) {
+        console.error('[Combat] Error al crear combate:', err);
+        addLog('Error al iniciar el combate. Regresando al mapa.');
+        setGamePhase('IN_GAME');
+      }
     } else if (resolution.shop) {
       setShopInventory(generateShopInventory());
       setGamePhase('SHOP');
@@ -116,7 +118,7 @@ export const useGameHandlers = () => {
       addLog(resolution.simulation.log);
       setGamePhase('SIMULATION_RESULT');
     }
-  }, [playerState, mapData, addLog, setActiveEvent, setGamePhase, setPreCombatEnemyId, setShopInventory, setSimulationResult, setPlayerState]);
+  }, [playerState, mapData, addLog, setActiveEvent, setGamePhase, setShopInventory, setSimulationResult, setPlayerState]);
 
   const handleNodeSelect = useCallback(
     (nodeId: number) => {
@@ -194,7 +196,7 @@ export const useGameHandlers = () => {
 
       setPlayerState({ ...playerState, xp: newXp, level: newLevel, xpToNextLevel: newXpToNext });
       if (levelUps > 0) {
-        setPendingLevelUps(pendingLevelUps + levelUps);
+        setPendingLevelUps(prev => prev + levelUps);
       }
     },
     [playerState, addLog, setPlayerState, setPendingLevelUps, pendingLevelUps]
@@ -226,11 +228,18 @@ export const useGameHandlers = () => {
 
   const handleStartCombat = useCallback(() => {
     if (!playerState || !preCombatEnemyId) return;
-    const newCombat = combatEngine.createCombat(playerState, preCombatEnemyId, Date.now());
-    setActiveCombat(newCombat);
-    setGamePhase('COMBAT');
-    setPreCombatEnemyId(null);
-  }, [playerState, preCombatEnemyId, setActiveCombat, setGamePhase, setPreCombatEnemyId]);
+    try {
+      const newCombat = combatEngine.createCombat(playerState, preCombatEnemyId, Date.now());
+      setActiveCombat(newCombat);
+      setGamePhase('COMBAT');
+      setPreCombatEnemyId(null);
+    } catch (err) {
+      console.error('[Combat] Error al crear combate:', err);
+      addLog('Error al iniciar el combate. Regresando al mapa.');
+      setPreCombatEnemyId(null);
+      setGamePhase('IN_GAME');
+    }
+  }, [playerState, preCombatEnemyId, setActiveCombat, setGamePhase, setPreCombatEnemyId, addLog]);
 
   const handlePlayCard = useCallback(
     (cardInstanceId: string) => {
@@ -265,7 +274,7 @@ export const useGameHandlers = () => {
         setPlayerState(newState);
         if (xpGained > 0) handleGainXp(xpGained);
 
-        const rewards = Object.values(ALL_CARDS).filter(
+        const rewards = Object.values(getAllCards()).filter(
           (c) => (c.rarity === 'Uncommon' || c.rarity === 'Common') && c.price > 0
         );
         const shuffled = [...rewards].sort(() => 0.5 - Math.random());
@@ -288,7 +297,7 @@ export const useGameHandlers = () => {
 
       const newCardInstance = createCardInstance(cardId);
       setPlayerState({ ...playerState, deck: [...playerState.deck, newCardInstance] });
-      addLog(`"${ALL_CARDS[cardId].name}" añadido a tu mazo.`);
+      addLog(`"${getAllCards()[cardId]?.name ?? cardId}" añadido a tu mazo.`);
       setCardRewards([]);
 
       if (pendingLevelUps > 0) {
@@ -310,20 +319,23 @@ export const useGameHandlers = () => {
           setPlayerState({ ...playerState, maxHull: playerState.maxHull + 5, hull: playerState.hull + 5 });
           break;
         case 'ENERGY':
-          addLog('Energía máxima en combate aumentada en 1. (Efecto futuro)');
+          addLog('Energía máxima en combate aumentada en 1.');
+          setPlayerState({ ...playerState, bonusEnergy: (playerState.bonusEnergy || 0) + 1 });
           break;
-        case 'CARD':
-          const rareRewards = Object.values(ALL_CARDS).filter((c) => c.rarity === 'Rare');
+        case 'CARD': {
+          const rareRewards = Object.values(getAllCards()).filter((c) => c.rarity === 'Rare');
           const shuffled = [...rareRewards].sort(() => 0.5 - Math.random());
           setCardRewards(shuffled.slice(0, 3).map((c) => c.id));
           setRewardTitle('Mejora de Nivel: Elige una Carta Rara');
           setGamePhase('CARD_REWARD');
-          setPendingLevelUps(pendingLevelUps - 1);
+          setPendingLevelUps(prev => prev - 1);
           return;
+        }
       }
 
-      setPendingLevelUps(pendingLevelUps - 1);
-      if (pendingLevelUps <= 1) {
+      const nextPending = pendingLevelUps - 1;
+      setPendingLevelUps(nextPending);
+      if (nextPending <= 0) {
         setGamePhase('IN_GAME');
       }
     },
@@ -335,7 +347,7 @@ export const useGameHandlers = () => {
       if (!playerState || playerState.credits < card.price) return;
       const newCard = createCardInstance(card.cardId);
       setPlayerState({ ...playerState, credits: playerState.credits - card.price, deck: [...playerState.deck, newCard] });
-      addLog(`Has comprado "${ALL_CARDS[card.cardId].name}".`);
+      addLog(`Has comprado "${getAllCards()[card.cardId]?.name ?? card.cardId}".`);
     },
     [playerState, setPlayerState, addLog]
   );

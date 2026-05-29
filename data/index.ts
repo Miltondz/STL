@@ -120,10 +120,11 @@ function createConsequenceFunction(option: any): (state: PlayerState) => EventCo
           credits: Math.max(0, state.credits + creditsChange),
           hull: Math.min(state.maxHull, Math.max(0, state.hull + hullChange)),
           fuel: Math.max(0, state.fuel + fuelChange),
-          xp: state.xp + xpChange
+          // xp handled via xpGained so handleGainXp can trigger level-ups
         },
         log: fixTextEncoding(selectedRoll.logText) || 'Evento completado.',
-        reactionText: fixTextEncoding(selectedRoll.reactionText) || undefined
+        reactionText: fixTextEncoding(selectedRoll.reactionText) || undefined,
+        xpGained: xpChange > 0 ? xpChange : undefined,
       };
     }
     
@@ -153,59 +154,30 @@ const CARD_ID_MAPPING: Record<string, string> = {
   'DFEN_D': 'DEFEND_1'
 };
 
-export function getAllCards(): Record<string, CardData> {
-  console.log('[DEBUG] getAllCards called, cachedCards exists:', !!cachedCards);
-  
-  if (cachedCards) {
-    console.log('[DEBUG] Returning cached cards:', Object.keys(cachedCards).length);
-    
-    // Crear un nuevo objeto que incluya tanto los IDs originales como los mapeados
-    const cardsWithMapping = { ...cachedCards };
-    
-    // Agregar mapeos de IDs incorrectos a cartas existentes
-    Object.entries(CARD_ID_MAPPING).forEach(([oldId, newId]) => {
-      if (cachedCards[newId]) {
-        cardsWithMapping[oldId] = cachedCards[newId];
-        console.log('[DEBUG] Mapped', oldId, '->', newId);
-      }
-    });
-    
-    return cardsWithMapping;
+function applyCardIdMapping(base: Record<string, CardData>): Record<string, CardData> {
+  const result = { ...base };
+  for (const [oldId, newId] of Object.entries(CARD_ID_MAPPING)) {
+    if (result[newId]) result[oldId] = result[newId];
   }
+  return result;
+}
 
-  console.log('[DEBUG] contentLoader.isLoaded():', contentLoader.isLoaded());
-  
+export function getAllCards(): Record<string, CardData> {
+  if (cachedCards) return applyCardIdMapping(cachedCards);
+
   if (contentLoader.isLoaded()) {
     const cardsArray = contentLoader.getCards();
-    console.log('[Data] contentLoader.getCards():', cardsArray);
-    console.log('[DEBUG] cardsArray.length:', cardsArray.length);
-    
     if (cardsArray.length > 0) {
-      // Convertir array a Record<string, CardData>
       cachedCards = cardsArray.reduce((acc, card) => {
-        console.log('[DEBUG] Processing card:', card.id);
         acc[card.id] = card as CardData;
         return acc;
       }, {} as Record<string, CardData>);
-      console.log('[Data] Usando cartas desde JSON:', Object.keys(cachedCards).length);
-      console.log('[DEBUG] Final cachedCards keys:', Object.keys(cachedCards));
-      return cachedCards;
+      console.log('[Data] Cartas desde JSON:', Object.keys(cachedCards).length);
+      return applyCardIdMapping(cachedCards);
     }
   }
 
-  // Fallback a datos hardcodeados
-  console.log('[Data] Usando cartas hardcodeadas (fallback)');
-  console.log('[DEBUG] CARDS_HARDCODED keys:', Object.keys(CARDS_HARDCODED));
-  
-  // Aplicar mapeo también al fallback
-  const hardcodedWithMapping = { ...CARDS_HARDCODED };
-  Object.entries(CARD_ID_MAPPING).forEach(([oldId, newId]) => {
-    if (CARDS_HARDCODED[newId]) {
-      hardcodedWithMapping[oldId] = CARDS_HARDCODED[newId];
-    }
-  });
-  
-  return hardcodedWithMapping;
+  return applyCardIdMapping(CARDS_HARDCODED as Record<string, CardData>);
 }
 
 /**
@@ -217,11 +189,8 @@ export function getAllShips(): ShipData[] {
   if (contentLoader.isLoaded()) {
     const jsonShips = contentLoader.getPlayerShips();
     if (jsonShips.length > 0) {
-      // Mapear estructura de JSON a ShipData, incluyendo tokenImage
       cachedShips = jsonShips.map((js: any) => {
         const fallback = SHIPS_HARDCODED.find(s => s.name === js.name) || SHIPS_HARDCODED[0];
-        
-        // Debug: mapeo de nave completado
         
         return {
           id: js.id, // Usar siempre el ID del JSON para evitar duplicados
@@ -241,85 +210,31 @@ export function getAllShips(): ShipData[] {
           crew: js.metadata?.crewSlots ?? fallback?.crew ?? 1,
         } as ShipData;
       });
-      console.log('[Data] Usando naves desde JSON:', cachedShips.length);
       return cachedShips;
     }
   }
 
-  // Fallback a datos hardcodeados
-  console.log('[Data] Usando naves hardcodeadas (fallback)');
   return SHIPS_HARDCODED;
-  
-  /* CÓDIGO ORIGINAL COMENTADO HASTA CORREGIR JSON
-  if (cachedShips) return cachedShips;
-
-  if (contentLoader.isLoaded()) {
-    const jsonShips = contentLoader.getPlayerShips();
-    if (jsonShips.length > 0) {
-      // Mapear estructura de JSON a ShipData, usando los valores de fallback
-      cachedShips = jsonShips.map((js: any) => {
-        const fallback = SHIPS_HARDCODED.find(s => s.name === js.name) || SHIPS_HARDCODED[0];
-        return {
-          id: fallback?.id || js.id,
-          name: js.name || fallback?.name,
-          image: js.image || fallback?.image,
-          subtype: js.metadata?.subtype || fallback?.subtype,
-          faction: js.metadata?.faction || fallback?.faction,
-          description: js.description || fallback?.description,
-          trait: js.specialAbility ? { name: js.specialAbility.name, description: js.specialAbility.description } : fallback?.trait,
-          difficulty: js.metadata?.difficulty ?? fallback?.difficulty ?? 1,
-          initialDeck: fallback?.initialDeck || js.metadata?.initialDeck || [],
-          initialFuel: js.maxFuel ?? fallback?.initialFuel ?? 10,
-          initialCredits: js.metadata?.initialCredits ?? fallback?.initialCredits ?? 0,
-          maxHull: js.maxHull ?? fallback?.maxHull ?? 50,
-          maxShields: js.maxShields ?? fallback?.maxShields ?? 10,
-          crew: js.metadata?.crewSlots ?? fallback?.crew ?? 1,
-        } as ShipData;
-      });
-      console.log('[Data] Usando naves desde JSON:', cachedShips.length);
-      return cachedShips;
-    }
-  }
-
-  // Fallback a datos hardcodeados
-  console.log('[Data] Usando naves hardcodeadas (fallback)');
-  return SHIPS_HARDCODED;
-  */
 }
 
 /**
  * Obtiene todas las plantillas de enemigos (desde JSON o fallback)
  */
 export function getEnemyTemplates(): Record<string, any> {
-  console.log('[DEBUG] getEnemyTemplates called, cachedEnemies exists:', !!cachedEnemies);
-  
-  if (cachedEnemies) {
-    console.log('[DEBUG] Returning cached enemies:', Object.keys(cachedEnemies).length);
-    return cachedEnemies;
-  }
+  if (cachedEnemies) return cachedEnemies;
 
-  console.log('[DEBUG] contentLoader.isLoaded() for enemies:', contentLoader.isLoaded());
-  
   if (contentLoader.isLoaded()) {
     const enemyShips = contentLoader.getEnemyShips();
-    console.log('[DEBUG] contentLoader.getEnemyShips():', enemyShips.length);
-    
     if (enemyShips.length > 0) {
-      // Convertir array a Record
       cachedEnemies = enemyShips.reduce((acc, enemy) => {
-        console.log('[DEBUG] Processing enemy:', enemy.id, enemy.name);
         acc[enemy.id] = enemy;
         return acc;
       }, {} as Record<string, any>);
-      console.log('[Data] Usando enemigos desde JSON:', Object.keys(cachedEnemies).length);
-      console.log('[DEBUG] Enemy IDs loaded:', Object.keys(cachedEnemies));
+      console.log('[Data] Enemigos desde JSON:', Object.keys(cachedEnemies).length);
       return cachedEnemies;
     }
   }
 
-  // Fallback a datos hardcodeados
-  console.log('[Data] Usando enemigos hardcodeados (fallback)');
-  console.log('[DEBUG] Hardcoded enemy IDs:', Object.keys(ENEMIES_HARDCODED));
   return ENEMIES_HARDCODED;
 }
 
@@ -330,11 +245,8 @@ export function getEncounterDeck(): EventCardData[] {
   if (cachedEncounters) return cachedEncounters;
 
   if (contentLoader.isLoaded()) {
-    console.log('[Data] ContentLoader está cargado, obteniendo encuentros...');
     const encounters = contentLoader.getEncounters();
-    console.log('[Data] Encuentros obtenidos del JSON:', encounters.length);
     if (encounters.length > 0) {
-      // Mapear estructura JSON a EventCardData
       cachedEncounters = encounters.map((encounter: any) => ({
         id: encounter.id,
         title: fixTextEncoding(encounter.title),
@@ -353,13 +265,10 @@ export function getEncounterDeck(): EventCardData[] {
           consequence: createConsequenceFunction(option)
         }))
       })) as EventCardData[];
-      console.log('[Data] Usando encuentros desde JSON:', cachedEncounters.length);
       return cachedEncounters;
     }
   }
 
-  // Fallback a datos hardcodeados
-  console.log('[Data] Usando encuentros hardcodeados (fallback)');
   return ENCOUNTERS_HARDCODED;
 }
 
@@ -370,11 +279,8 @@ export function getHazardDeck(): EventCardData[] {
   if (cachedHazards) return cachedHazards;
 
   if (contentLoader.isLoaded()) {
-    console.log('[Data] ContentLoader está cargado, obteniendo peligros...');
     const hazards = contentLoader.getHazards();
-    console.log('[Data] Peligros obtenidos del JSON:', hazards.length);
     if (hazards.length > 0) {
-      // Mapear estructura JSON a EventCardData
       cachedHazards = hazards.map((hazard: any) => ({
         id: hazard.id,
         title: fixTextEncoding(hazard.title),
@@ -393,13 +299,10 @@ export function getHazardDeck(): EventCardData[] {
           consequence: createConsequenceFunction(option)
         }))
       })) as EventCardData[];
-      console.log('[Data] Usando peligros desde JSON:', cachedHazards.length);
       return cachedHazards;
     }
   }
 
-  // Fallback a datos hardcodeados
-  console.log('[Data] Usando peligros hardcodeados (fallback)');
   return HAZARDS_HARDCODED;
 }
 

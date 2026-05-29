@@ -1,7 +1,5 @@
 import { NodeType, EventCardData, PlayerState, SimulationResult } from '../types';
-import { ENCOUNTER_DECK, HAZARD_DECK } from '../constants';
-import { ENEMY_TEMPLATES } from '../data/enemies';
-import { getEncounterDeck, getHazardDeck } from '../data';
+import { getEncounterDeck, getHazardDeck, getEnemyTemplates } from '../data';
 
 // Mantiene un registro de las cartas usadas para evitar repeticiones en una misma partida.
 const usedEncounterCardIds = new Set<string>();
@@ -86,10 +84,13 @@ export const resolveNode = (
       return { card: getEncounterCard() };
     case NodeType.HAZARD:
       return { card: getHazardCard() };
-    case NodeType.BATTLE:
-      // Devuelve un enemigo aleatorio para la batalla
-      const enemies = Object.keys(ENEMY_TEMPLATES).filter(id => id !== 'MINIBOSS_CORVETTE');
-      return { combat: { enemyId: enemies[Math.floor(Math.random() * enemies.length)] } };
+    case NodeType.BATTLE: {
+      const allEnemies = getEnemyTemplates();
+      // Convention: miniboss IDs must start with 'MINIBOSS_' to be excluded from regular battles
+      const regularEnemies = Object.keys(allEnemies).filter(id => !id.startsWith('MINIBOSS_'));
+      const pool = regularEnemies.length > 0 ? regularEnemies : Object.keys(allEnemies);
+      return { combat: { enemyId: pool[Math.floor(Math.random() * pool.length)] } };
+    }
     case NodeType.MINI_BOSS:
       return { combat: { enemyId: 'MINIBOSS_CORVETTE' } };
     case NodeType.SHOP:

@@ -57,7 +57,8 @@ export const loadGame = (): GameSave | null => {
     
     // Validar versión
     if (save.version !== SAVE_VERSION) {
-      console.warn('[SaveManager] Versión de guardado incompatible, ignorando');
+      console.warn('[SaveManager] Versión de guardado incompatible, eliminando guardado obsoleto');
+      localStorage.removeItem(SAVE_KEY);
       return null;
     }
 

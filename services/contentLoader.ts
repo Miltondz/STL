@@ -80,6 +80,7 @@ class ContentLoader {
   }
 
   async loadContent(): Promise<ContentData | null> {
+    if (this.loaded && this.content) return this.content;
     console.log('[ContentLoader] Iniciando carga de contenido...');
 
     const shipsData = await this.loadAndValidate('/data/ships-converted.json', z.object({ ships: z.array(z.any()) }));

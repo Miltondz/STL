@@ -287,38 +287,36 @@ export const CombatInterface: React.FC<CombatInterfaceProps> = ({ combatState, o
         };
     }, []);
 
-    const handleCardDoubleClick = (cardInstance: CardInstance) => {
+    const handleCardClick = (cardInstance: CardInstance) => {
         const cardData = allCards[cardInstance.cardId];
         if (!cardData) return;
         const actualCost = Math.max(0, cardData.cost + (cardInstance.affix?.costModifier || 0));
-        const canPlay = isPlayerInputPhase && (player.energy || 0) >= actualCost && !isCardPlaying; // Condición actualizada
-        
+        const canPlay = isPlayerInputPhase && (player.energy || 0) >= actualCost && !isCardPlaying;
+
         if (canPlay) {
+            setIsCardPlaying(true);
             setPlayedCard(cardInstance);
             setCardEffect('');
             if (playCardTimerRef.current) clearTimeout(playCardTimerRef.current);
             if (effectTimerRef.current) clearTimeout(effectTimerRef.current);
-            
-            // Después de 2 segundos, aplicar efectos especiales
+
+            // Efecto visual breve (250ms) → turbulencia (300ms) → ejecutar
             playCardTimerRef.current = setTimeout(() => {
                 const effects = ['cardfx-shake', 'cardfx-3d'];
-                const randomEffect = effects[Math.floor(Math.random() * effects.length)];
-                setCardEffect(randomEffect);
-                
-                // Después del efecto especial, aplicar turbulencia
+                setCardEffect(effects[Math.floor(Math.random() * effects.length)]);
+
                 effectTimerRef.current = setTimeout(() => {
                     setCardEffect('cardfx-turbulence');
-                    
-                    // Después de la turbulencia, aplicar efectos del juego y remover carta
+
                     setTimeout(() => {
                         onPlayCard(cardInstance.instanceId);
                         setPlayedCard(null);
                         setCardEffect('');
                         setUsedCards(prev => [...prev, cardInstance]);
-                        setIsCardPlaying(false); // Desbloquear al finalizar
-                    }, 800); // Duración de la animación de turbulencia
-                }, randomEffect === 'cardfx-shake' ? 600 : 1200); // Duración del efecto especial
-            }, 2000); // 2 segundos iniciales
+                        setIsCardPlaying(false);
+                    }, 300);
+                }, 250);
+            }, 0);
         }
     };
 
@@ -570,8 +568,7 @@ export const CombatInterface: React.FC<CombatInterfaceProps> = ({ combatState, o
               >
                 <Card
                   cardInstance={cardInstance}
-                  onClick={() => {}}
-                  onDoubleClick={() => handleCardDoubleClick(cardInstance)}
+                  onClick={() => handleCardClick(cardInstance)}
                   disabled={!canPlay}
                   size="small"
                 />
@@ -582,16 +579,22 @@ export const CombatInterface: React.FC<CombatInterfaceProps> = ({ combatState, o
 
         {/* Derecha: Controles y Bitácora en un solo panel */}
         <div className="w-52 shrink-0 flex flex-col bg-gray-900/70 p-2 rounded-lg border border-cyan-500/20 overflow-hidden" style={{ height: '320px', maxHeight: '320px' }}>
-          {/* Botón Finalizar Turno */}
-          <button
-            onClick={onEndTurn}
-            disabled={!isPlayerInputPhase || isCardPlaying} // Condición actualizada
-            className="w-full font-orbitron text-sm p-1 rounded-md border flex-shrink-0
-            disabled:bg-gray-800 disabled:border-gray-600 disabled:text-gray-500
-            bg-green-700/80 border-green-500/70 hover:enabled:bg-green-600/80 hover:enabled:border-green-400"
-          >
-            Finalizar Turno
-          </button>
+          {/* Botón Finalizar Turno — pulsa cuando energía agotada */}
+          {(() => {
+            const energyEmpty = isPlayerInputPhase && !isCardPlaying && (player.energy || 0) === 0;
+            return (
+              <button
+                onClick={onEndTurn}
+                disabled={!isPlayerInputPhase || isCardPlaying}
+                className={`w-full font-orbitron text-sm p-1 rounded-md border flex-shrink-0
+                  disabled:bg-gray-800 disabled:border-gray-600 disabled:text-gray-500
+                  bg-green-700/80 border-green-500/70 hover:enabled:bg-green-600/80 hover:enabled:border-green-400
+                  ${energyEmpty ? 'animate-pulse ring-2 ring-green-400 shadow-lg shadow-green-500/40' : ''}`}
+              >
+                {energyEmpty ? '⚡ FIN DE TURNO' : 'Finalizar Turno'}
+              </button>
+            );
+          })()}
           
           {/* Botón de Escape (Solo para pruebas) */}
           {onEscape && (

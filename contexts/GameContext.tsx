@@ -1,5 +1,5 @@
 // contexts/GameContext.tsx
-import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useMemo, ReactNode } from 'react';
 import {
   PlayerState,
   MapData,
@@ -13,6 +13,7 @@ import {
   ShopServiceType,
 } from '../types';
 import { saveGame, loadGame, deleteSave } from '../services/saveManager';
+import { resetEventCardStates } from '../services/eventManager';
 
 type GamePhase =
   | 'START_SCREEN'
@@ -73,7 +74,7 @@ interface GameActions {
   setRewardTitle: (title: string) => void;
   setShopInventory: (inventory: ShopInventory | null) => void;
   setSimulationResult: (result: SimulationResult | null) => void;
-  setPendingLevelUps: (count: number) => void;
+  setPendingLevelUps: (count: React.SetStateAction<number>) => void;
 
   // Save/Load
   saveCurrentGame: () => boolean;
@@ -135,6 +136,7 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
     const save = loadGame();
     if (!save) return false;
 
+    resetEventCardStates();
     setPlayerState(save.playerState);
     setMapData(save.mapData);
     setCurrentNodeId(save.currentNodeId);
@@ -164,46 +166,20 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
     }
   }, [playerState, mapData, currentNodeId, gamePhase, saveCurrentGame]);
 
-  const value: GameContextValue = {
-    // State
-    gamePhase,
-    contentLoaded,
-    playerState,
-    mapData,
-    currentNodeId,
-    logs,
-    isTraveling,
-    activeEvent,
-    eventResult,
-    activeCombat,
-    preCombatEnemyId,
-    cardRewards,
-    rewardTitle,
-    shopInventory,
-    simulationResult,
-    pendingLevelUps,
-
-    // Actions
-    setGamePhase,
-    setContentLoaded,
-    setPlayerState,
-    setMapData,
-    setCurrentNodeId,
-    addLog,
-    setIsTraveling,
-    setActiveEvent,
-    setEventResult,
-    setActiveCombat,
-    setPreCombatEnemyId,
-    setCardRewards,
-    setRewardTitle,
-    setShopInventory,
-    setSimulationResult,
-    setPendingLevelUps,
-    saveCurrentGame,
-    loadSavedGame,
-    deleteSavedGame,
-  };
+  const value = useMemo<GameContextValue>(() => ({
+    gamePhase, contentLoaded, playerState, mapData, currentNodeId, logs, isTraveling,
+    activeEvent, eventResult, activeCombat, preCombatEnemyId, cardRewards, rewardTitle,
+    shopInventory, simulationResult, pendingLevelUps,
+    setGamePhase, setContentLoaded, setPlayerState, setMapData, setCurrentNodeId,
+    addLog, setIsTraveling, setActiveEvent, setEventResult, setActiveCombat,
+    setPreCombatEnemyId, setCardRewards, setRewardTitle, setShopInventory,
+    setSimulationResult, setPendingLevelUps, saveCurrentGame, loadSavedGame, deleteSavedGame,
+  }), [
+    gamePhase, contentLoaded, playerState, mapData, currentNodeId, logs, isTraveling,
+    activeEvent, eventResult, activeCombat, preCombatEnemyId, cardRewards, rewardTitle,
+    shopInventory, simulationResult, pendingLevelUps,
+    addLog, saveCurrentGame, loadSavedGame,
+  ]);
 
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>;
 };

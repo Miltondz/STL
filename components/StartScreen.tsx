@@ -56,24 +56,32 @@ export const StartScreen: React.FC<StartScreenProps> = ({ onStart }) => {
                     >
                         {hasSave ? 'Nueva Aventura' : 'Comenzar Aventura'}
                     </button>
-                    <button 
-                        onClick={() => window.open('./editor/index.html', '_blank')}
-                        className="w-72 px-8 py-3 bg-purple-600 hover:bg-purple-500 rounded-lg font-bold text-white text-xl font-orbitron transition-all duration-300 transform hover:scale-105 shadow-lg shadow-purple-500/20"
-                    >
-                        🎮 Editor de Contenido
-                    </button>
-                    <button 
-                        onClick={() => exportSave()}
-                        className="w-72 px-8 py-3 bg-teal-700 hover:bg-teal-600 rounded-lg font-bold text-white text-xl font-orbitron"
-                    >
-                        ⬇️ Exportar Partida
-                    </button>
-                    <button 
-                        onClick={() => fileInputRef.current?.click()}
-                        className="w-72 px-8 py-3 bg-amber-700 hover:bg-amber-600 rounded-lg font-bold text-white text-xl font-orbitron"
-                    >
-                        ⬆️ Importar Partida
-                    </button>
+                    {/* Save data utilities */}
+                    <div className="flex gap-2 justify-center">
+                        <button
+                            onClick={() => exportSave()}
+                            className="px-4 py-2 bg-teal-700/70 hover:bg-teal-600 rounded-lg text-sm font-orbitron text-white transition-all"
+                            title="Exportar partida como JSON"
+                        >
+                            ⬇️ Exportar
+                        </button>
+                        <button
+                            onClick={() => fileInputRef.current?.click()}
+                            className="px-4 py-2 bg-amber-700/70 hover:bg-amber-600 rounded-lg text-sm font-orbitron text-white transition-all"
+                            title="Importar partida desde JSON"
+                        >
+                            ⬆️ Importar
+                        </button>
+                    </div>
+                    {/* Editor only visible in dev */}
+                    {import.meta.env.DEV && (
+                        <button
+                            onClick={() => window.open('./editor/index.html', '_blank')}
+                            className="w-72 px-6 py-2 bg-purple-800/60 hover:bg-purple-700 rounded-lg text-sm font-orbitron text-purple-300 border border-purple-600/40 transition-all"
+                        >
+                            🛠 Editor de Contenido
+                        </button>
+                    )}
                     <input
                         ref={fileInputRef}
                         type="file"

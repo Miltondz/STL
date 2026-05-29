@@ -3,9 +3,7 @@ import { PlayerState, CombatState, Action, ActionType, Combatant, CardInstance, 
 import { getEnemyTemplates, getAllCards } from '../data';
 import { SeededRNG } from './rng';
 
-// --- Datos del Juego ---
-const ALL_CARDS = getAllCards();
-const ENEMY_TEMPLATES = getEnemyTemplates();
+// --- Datos del Juego (lazy — llamar dentro de funciones para respetar carga de JSON) ---
 
 // --- Contadores Globales ---
 let actionIdCounter = 0;
@@ -234,7 +232,7 @@ const startPlayerTurn = (state: CombatState, rng: SeededRNG): CombatState => {
 // --- Creación y Flujo del Combate ---
 
 export const createCombat = (playerState: PlayerState, enemyId: string, seed: number): CombatState => {
-  const enemyTemplate = ENEMY_TEMPLATES[enemyId];
+  const enemyTemplate = getEnemyTemplates()[enemyId];
   if (!enemyTemplate) throw new Error(`Enemigo con id "${enemyId}" no encontrado.`);
 
   const rng = new SeededRNG(seed);
@@ -249,8 +247,8 @@ export const createCombat = (playerState: PlayerState, enemyId: string, seed: nu
     shield: playerState.shields,
     maxShield: playerState.maxShields,
     dead: false,
-    energy: 3,
-    maxEnergy: 3,
+    energy: 3 + (playerState.bonusEnergy || 0),
+    maxEnergy: 3 + (playerState.bonusEnergy || 0),
     fuego: 0,
     maniobra: 0,
     credits: 0,
@@ -294,7 +292,7 @@ export const playCard = (state: CombatState, cardInstanceId: string, targetId: s
     const cardInstance = player.hand?.find(c => c.instanceId === cardInstanceId);
     if (!cardInstance) return state;
 
-    const cardData = ALL_CARDS[cardInstance.cardId];
+    const cardData = getAllCards()[cardInstance.cardId];
     if (!cardData) return state;
     
     const affix = cardInstance.affix;
@@ -328,10 +326,10 @@ export const playCard = (state: CombatState, cardInstanceId: string, targetId: s
             newState.actionQueue.push(createAction('DEAL_DAMAGE', player.id, targetId, actualValue));
             break;
         case 'EFFECT_FIRE_2':
-            newState.actionQueue.push(createAction('GAIN_RESOURCE', player.id, player.id, 2, { resource: 'fuego' }));
+            newState.actionQueue.push(createAction('GAIN_RESOURCE', player.id, player.id, actualValue || 2, { resource: 'fuego' }));
             break;
         case 'EFFECT_GAIN_MANIOBRA_2':
-            newState.actionQueue.push(createAction('GAIN_RESOURCE', player.id, player.id, 2, { resource: 'maniobra' }));
+            newState.actionQueue.push(createAction('GAIN_RESOURCE', player.id, player.id, actualValue || 2, { resource: 'maniobra' }));
             // Condición: comprobar la mano DESPUÉS de haber retirado la carta.
             if (playerMutatable.hand!.length === 0) {
                 newState.log.push(`La mano de ${player.name} está vacía. ¡Roba una carta!`);
@@ -339,7 +337,7 @@ export const playCard = (state: CombatState, cardInstanceId: string, targetId: s
             }
             break;
         case 'EFFECT_GAIN_CREDITO_1':
-            newState.actionQueue.push(createAction('GAIN_RESOURCE', player.id, player.id, 1, { resource: 'credito' }));
+            newState.actionQueue.push(createAction('GAIN_RESOURCE', player.id, player.id, actualValue || 1, { resource: 'credito' }));
             break;
         case 'EFFECT_HEAL_HULL_AND_EXILE':
             newState.actionQueue.push(createAction('REPAIR_HULL', player.id, player.id, actualValue));
@@ -352,7 +350,7 @@ export const playCard = (state: CombatState, cardInstanceId: string, targetId: s
             newState.actionQueue.push(createAction('REPAIR_HULL', player.id, player.id, actualValue));
             break;
         case 'EFFECT_ENERGY_1':
-             newState.actionQueue.push(createAction('GAIN_ENERGY', player.id, player.id, 1));
+             newState.actionQueue.push(createAction('GAIN_ENERGY', player.id, player.id, actualValue || 1));
              break;
         case 'CREW_BASIC':
             newState.log.push(`El ${cardData.name} es tripulación y no tiene efecto en combate.`);
@@ -376,30 +374,37 @@ export const playCard = (state: CombatState, cardInstanceId: string, targetId: s
 
 // Procesa el turno del enemigo basándose en su intención actual.
 const processEnemyTurn = (state: CombatState, rng: SeededRNG): CombatState => {
-    let newState = { ...state, actionQueue: [...state.actionQueue] };
-    const player = state.combatants.find(c => c.isPlayer)!;
-    const enemy = state.combatants.find(c => !c.isPlayer)!;
+    // Deep-clone combatants to avoid mutating the input state reference
+    const newState = { ...state, combatants: JSON.parse(JSON.stringify(state.combatants)), actionQueue: [...state.actionQueue] };
+    const player = newState.combatants.find(c => c.isPlayer)!;
+    const enemy = newState.combatants.find(c => !c.isPlayer)!;
 
     if (enemy.dead || player.dead || !enemy.intent) return state;
     
     const intent = enemy.intent;
 
     switch (intent.type) {
-        case 'ATTACK':
-            const damage = intent.value! + rng.nextInt(-1, 1);
-            newState.actionQueue.push(createAction('DEAL_DAMAGE', enemy.id, player.id, damage));
+        case 'ATTACK': {
+            const damage = (intent.value ?? 0) + rng.nextInt(-1, 1);
+            newState.actionQueue.push(createAction('DEAL_DAMAGE', enemy.id, player.id, Math.max(0, damage)));
             break;
+        }
         case 'DEFEND':
-            newState.actionQueue.push(createAction('RECHARGE_SHIELD', enemy.id, enemy.id, intent.value!));
+            newState.actionQueue.push(createAction('RECHARGE_SHIELD', enemy.id, enemy.id, intent.value ?? 0));
             break;
-        case 'ATTACK_DEFEND':
-            const attackDamage = intent.value! + rng.nextInt(-1, 0);
-            newState.actionQueue.push(createAction('DEAL_DAMAGE', enemy.id, player.id, attackDamage));
-            newState.actionQueue.push(createAction('RECHARGE_SHIELD', enemy.id, enemy.id, intent.secondaryValue!));
+        case 'ATTACK_DEFEND': {
+            const attackDamage = (intent.value ?? 0) + rng.nextInt(-1, 0);
+            newState.actionQueue.push(createAction('DEAL_DAMAGE', enemy.id, player.id, Math.max(0, attackDamage)));
+            newState.actionQueue.push(createAction('RECHARGE_SHIELD', enemy.id, enemy.id, intent.secondaryValue ?? 0));
             break;
+        }
         case 'BUFF':
             enemy.attackBuff = (enemy.attackBuff || 0) + 3;
             newState.log.push(`${enemy.name} carga sus armas. ¡Su próximo ataque será más fuerte!`);
+            break;
+        case 'UNKNOWN':
+        default:
+            newState.log.push(`${enemy.name} no actúa este turno.`);
             break;
     }
 

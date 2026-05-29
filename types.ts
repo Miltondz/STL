@@ -107,6 +107,7 @@ export interface PlayerState {
   crewAffinity: { [crewId: string]: number };
   // Metaprogresión
   achievements: string[];
+  bonusEnergy?: number; // Extra energy per combat, awarded by level-up ENERGY reward
 }
 
 // --- Tipos del Motor de Combate ---

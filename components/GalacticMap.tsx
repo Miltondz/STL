@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { Node as NodeTypeData, NodeType, PlayerState } from '../types';
 import { NodeIcon } from './Icons';
 import { NODE_COLORS } from '../constants';
@@ -98,7 +98,8 @@ const getShopTokenImage = (nodeId: number): string => {
 };
 
 // SVG circle (clickable area) for node; planet image rendered inside
-const MapNode: React.FC<{ node: NodeTypeData; allNodes: NodeTypeData[]; isCurrent: boolean; isAvailable: boolean; onSelect: () => void }> = ({ node, allNodes, isCurrent, isAvailable, onSelect }) => {
+
+const MapNode: React.FC<{ node: NodeTypeData; allNodes: NodeTypeData[]; isCurrent: boolean; isAvailable: boolean; onSelect: () => void }> = React.memo(({ node, allNodes, isCurrent, isAvailable, onSelect }) => {
   const scale = isCurrent ? 1.3 : 1.0;
   const opacity = node.visited && !isCurrent ? 0.7 : 1;
   const cursor = isAvailable ? 'pointer' : 'default';
@@ -118,21 +119,6 @@ const MapNode: React.FC<{ node: NodeTypeData; allNodes: NodeTypeData[]; isCurren
       style={{ cursor, opacity, transition: 'transform 0.2s, opacity 0.3s' }}
       onClick={isAvailable ? onSelect : undefined}
     >
-      <defs>
-        <filter id={`atmosphere-${node.id}`} x="-50%" y="-50%" width="200%" height="200%">
-          <feTurbulence type="fractalNoise" baseFrequency="0.1" numOctaves="2" result="turbulence">
-            <animate 
-              attributeName="baseFrequency"
-              dur={`${10 + randomVal * 10}s`}
-              values="0.1;0.12;0.1"
-              repeatCount="indefinite" 
-              begin={`${animDelay}s`}
-            />
-          </feTurbulence>
-          <feDisplacementMap in="SourceGraphic" in2="turbulence" scale="1.5" />
-        </filter>
-      </defs>
-
       <circle r="4" fill="rgba(0,0,0,0)" />
 
       {/* Planet Image with variations OR Shop Station */}
@@ -164,7 +150,7 @@ const MapNode: React.FC<{ node: NodeTypeData; allNodes: NodeTypeData[]; isCurren
             transform={`scale(${imageScale}) rotate(${imageRotation} 0 0)`}
             style={{ 
                 pointerEvents: 'none',
-                filter: `url(#atmosphere-${node.id})`,
+                filter: isCurrent || isAvailable ? 'url(#atmosphere-shared)' : undefined,
                 animation: `glow ${animDuration * 2}s ease-in-out infinite`,
                 animationDelay: `${animDelay + 2}s`
             }}
@@ -249,7 +235,7 @@ const MapNode: React.FC<{ node: NodeTypeData; allNodes: NodeTypeData[]; isCurren
       )}
     </g>
   );
-};
+});
 
 // Token de la nave del jugador con animación de movimiento
 const PlayerShipToken: React.FC<{ 
@@ -260,83 +246,63 @@ const PlayerShipToken: React.FC<{
   currentNode?: NodeTypeData;
 }> = ({ x, y, isMoving, playerState, currentNode }) => {
   const [imageError, setImageError] = useState(false);
-  const [orbitAngle, setOrbitAngle] = useState(0);
-  
-  // Animación orbital suave sin tartamudeo
-  useEffect(() => {
-    if (!isMoving) {
-      const interval = setInterval(() => {
-        setOrbitAngle(prev => prev + 0.02);
-      }, 16); // ~60fps
-      return () => clearInterval(interval);
-    }
-  }, [isMoving]);
-  
-  // Calcular posición orbital (desplazado del centro del nodo)
-  const orbitRadius = 3.5; // Distancia del centro del nodo
-  const orbitX = x + Math.cos(orbitAngle) * orbitRadius;
-  const orbitY = y + Math.sin(orbitAngle) * orbitRadius;
-  
-  const tokenStyle: React.CSSProperties = isMoving ? {
-    animation: 'none'
-  } : {};
 
-  const handleImageError = () => {
-    setImageError(true);
-  };
+  const handleImageError = () => setImageError(true);
 
-  // El token del jugador siempre debe mostrar la nave del jugador
-  const tokenImage = getPlayerTokenImage(playerState);
+  // Pure SVG orbital animation — zero React re-renders at 60fps
+  const tokenImage = useMemo(() => getPlayerTokenImage(playerState), [playerState]);
+  const orbitRadius = 3.5;
+  const orbitPath = `M ${orbitRadius},0 a ${orbitRadius},${orbitRadius} 0 1,0 ${-orbitRadius * 2},0 a ${orbitRadius},${orbitRadius} 0 1,0 ${orbitRadius * 2},0`;
 
   return (
-    <g transform={`translate(${orbitX}, ${orbitY})`} style={tokenStyle}>
-      {!imageError ? (
-        /* Token con imagen específica */
-        <g transform="scale(5.0)"> {/* Mucho más grande para ser visible */}
-          {/* Imagen del token con borde luminoso */}
-          <image
-            href={tokenImage}
-            x="-0.6"
-            y="-0.6"
-            width="1.2"
-            height="1.2"
-            onError={handleImageError}
-            className={isMoving ? "" : "animate-pulse"}
-            style={{
-              filter: 'drop-shadow(0 0 0.3px #67e8f9) drop-shadow(0 0 0.6px #0891b2) drop-shadow(0 0 1px #67e8f9)',
-              opacity: isMoving ? 0.9 : 1
-            }}
-          />
-          
-          {/* Estela de movimiento cuando se está moviendo */}
-          {isMoving && (
-            <g opacity="0.7">
-              <circle cx="-0.2" cy="0.2" r="0.1" fill="#67e8f9" opacity="0.8">
-                <animate attributeName="opacity" values="0.8;0.2;0.8" dur="0.5s" repeatCount="indefinite" />
-              </circle>
-              <circle cx="-0.4" cy="0.4" r="0.08" fill="#0891b2" opacity="0.6">
-                <animate attributeName="opacity" values="0.6;0.1;0.6" dur="0.7s" repeatCount="indefinite" />
-              </circle>
-              <circle cx="-0.6" cy="0.6" r="0.06" fill="#67e8f9" opacity="0.4">
-                <animate attributeName="opacity" values="0.4;0.05;0.4" dur="0.9s" repeatCount="indefinite" />
-              </circle>
-            </g>
-          )}
-        </g>
-      ) : (
-        /* Fallback: Nave espacial simple (diseño original) */
-        <g transform="scale(2.0)">
-          <path 
-            d="M 0,-2 L -1,1 L -0.5,0.8 L 0,2 L 0.5,0.8 L 1,1 Z" 
-            fill="#67e8f9" 
-            stroke="#0891b2" 
-            strokeWidth="0.2"
-            className={isMoving ? "" : "animate-pulse"}
-          />
-          {/* Motor brillante */}
-          <circle cx="0" cy="1.5" r="0.4" fill="#fbbf24" className={isMoving ? "animate-pulse" : "animate-pulse"} />
-        </g>
-      )}
+    <g transform={`translate(${x}, ${y})`}>
+      <g>
+        {/* animateMotion handles orbit in SVG — no setState, no re-renders */}
+        {!isMoving && (
+          <animateMotion dur="8s" repeatCount="indefinite" rotate="none" path={orbitPath} />
+        )}
+        {!imageError ? (
+          <g transform="scale(5.0)">
+            <image
+              href={tokenImage}
+              x="-0.6"
+              y="-0.6"
+              width="1.2"
+              height="1.2"
+              onError={handleImageError}
+              className={isMoving ? "" : "animate-pulse"}
+              style={{
+                filter: 'drop-shadow(0 0 0.3px #67e8f9) drop-shadow(0 0 0.6px #0891b2) drop-shadow(0 0 1px #67e8f9)',
+                opacity: isMoving ? 0.9 : 1
+              }}
+            />
+            {isMoving && (
+              <g opacity="0.7">
+                <circle cx="-0.2" cy="0.2" r="0.1" fill="#67e8f9" opacity="0.8">
+                  <animate attributeName="opacity" values="0.8;0.2;0.8" dur="0.5s" repeatCount="indefinite" />
+                </circle>
+                <circle cx="-0.4" cy="0.4" r="0.08" fill="#0891b2" opacity="0.6">
+                  <animate attributeName="opacity" values="0.6;0.1;0.6" dur="0.7s" repeatCount="indefinite" />
+                </circle>
+                <circle cx="-0.6" cy="0.6" r="0.06" fill="#67e8f9" opacity="0.4">
+                  <animate attributeName="opacity" values="0.4;0.05;0.4" dur="0.9s" repeatCount="indefinite" />
+                </circle>
+              </g>
+            )}
+          </g>
+        ) : (
+          <g transform="scale(2.0)">
+            <path
+              d="M 0,-2 L -1,1 L -0.5,0.8 L 0,2 L 0.5,0.8 L 1,1 Z"
+              fill="#67e8f9"
+              stroke="#0891b2"
+              strokeWidth="0.2"
+              className={isMoving ? "" : "animate-pulse"}
+            />
+            <circle cx="0" cy="1.5" r="0.4" fill="#fbbf24" className="animate-pulse" />
+          </g>
+        )}
+      </g>
     </g>
   );
 };
@@ -345,19 +311,20 @@ const PlayerShipToken: React.FC<{
 export const GalacticMap: React.FC<GalacticMapProps> = ({ nodes, currentNodeId, onNodeSelect, playerState }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const [animatingTo, setAnimatingTo] = useState<{ x: number; y: number } | null>(null);
-  
-  // Debug: mostrar asignaciones de planetas una vez
+
+  // Single memoized map — replaces 3 separate `new Map()` calls per render
+  const nodeMap = useMemo(() => new Map(nodes.map(n => [n.id, n])), [nodes]);
+
+  // Debug: planet assignments (dev only)
   React.useEffect(() => {
-    const timer = setTimeout(() => {
-      showPlanetAssignments();
-    }, 2000);
+    if (!import.meta.env.DEV) return;
+    const timer = setTimeout(() => showPlanetAssignments(), 2000);
     return () => clearTimeout(timer);
   }, [nodes]);
   const [displayX, setDisplayX] = useState(0);
   const [displayY, setDisplayY] = useState(0);
 
   useEffect(() => {
-    const nodeMap = new Map<number, NodeTypeData>(nodes.map(node => [node.id, node]));
     const currentNode = nodeMap.get(currentNodeId);
     if (currentNode) {
       setDisplayX(currentNode.x);
@@ -398,9 +365,7 @@ export const GalacticMap: React.FC<GalacticMapProps> = ({ nodes, currentNodeId, 
   }, [animatingTo, displayX, displayY]);
 
   useEffect(() => {
-    // Esta función centra automáticamente el mapa en el nodo actual.
     if (mapContainerRef.current && nodes.length > 0) {
-      const nodeMap = new Map<number, NodeTypeData>(nodes.map(node => [node.id, node]));
       const currentNode = nodeMap.get(currentNodeId);
       
       const svgElement = mapContainerRef.current.querySelector('svg');
@@ -427,7 +392,7 @@ export const GalacticMap: React.FC<GalacticMapProps> = ({ nodes, currentNodeId, 
         }
       }
     }
-  }, [currentNodeId, nodes]);
+  }, [currentNodeId, nodeMap]);
 
 
   if (nodes.length === 0) {
@@ -435,18 +400,15 @@ export const GalacticMap: React.FC<GalacticMapProps> = ({ nodes, currentNodeId, 
   }
 
   const handleNodeSelect = (nodeId: number) => {
-    const nodeMap = new Map<number, NodeTypeData>(nodes.map(node => [node.id, node]));
     const targetNode = nodeMap.get(nodeId);
     if (targetNode) {
       setAnimatingTo({ x: targetNode.x, y: targetNode.y });
-      // Llamar al callback después de que termine la animación
       setTimeout(() => {
         onNodeSelect(nodeId);
       }, 800);
     }
   };
 
-  const nodeMap = new Map<number, NodeTypeData>(nodes.map(node => [node.id, node]));
   const currentNode = nodeMap.get(currentNodeId);
   const availableNodeIds = new Set(currentNode?.connections || []);
 
@@ -494,26 +456,36 @@ export const GalacticMap: React.FC<GalacticMapProps> = ({ nodes, currentNodeId, 
         backgroundRepeat: 'no-repeat'
       }}
     >
-      <svg viewBox={`${viewBoxX} ${viewBoxY} ${viewBoxWidth} ${viewBoxHeight}`} 
+      <svg viewBox={`${viewBoxX} ${viewBoxY} ${viewBoxWidth} ${viewBoxHeight}`}
            width="100%"
            style={{ background: 'transparent' }}>
+        {/* Shared atmosphere filter — one instance for all nodes */}
+        <defs>
+          <filter id="atmosphere-shared" x="-50%" y="-50%" width="200%" height="200%">
+            <feTurbulence type="fractalNoise" baseFrequency="0.1" numOctaves="2" result="turbulence">
+              <animate attributeName="baseFrequency" dur="12s" values="0.1;0.12;0.1" repeatCount="indefinite" />
+            </feTurbulence>
+            <feDisplacementMap in="SourceGraphic" in2="turbulence" scale="1.5" />
+          </filter>
+        </defs>
         {nodes.map(node =>
           node.connections.map(connId => {
             const connection = nodeMap.get(connId);
             if (!connection) return null;
             
-            // Solo mostrar líneas si:
-            // 1. Ambos nodos han sido visitados (línea sólida verde)
-            // 2. El nodo actual se conecta con un nodo disponible (línea punteada)
             const isPathVisited = node.visited && connection.visited;
             const isCurrentToAvailable = (node.id === currentNodeId && availableNodeIds.has(connId)) ||
                                        (connection.id === currentNodeId && availableNodeIds.has(node.id));
-            
-            // No mostrar la línea si no cumple ninguna condición
-            if (!isPathVisited && !isCurrentToAvailable) return null;
-            
-            const strokeColor = isPathVisited ? '#34d399' : '#60a5fa';
-            const strokeDasharray = isPathVisited ? 'none' : '0.5,1';
+
+            // Visited path: solid green. Available: dashed blue. Future: ghost dark.
+            let strokeColor = '#1e3a5f';
+            let strokeOpacity = '0.25';
+            let strokeDasharray = '0.3,1.5';
+            if (isPathVisited) {
+              strokeColor = '#34d399'; strokeOpacity = '1'; strokeDasharray = 'none';
+            } else if (isCurrentToAvailable) {
+              strokeColor = '#60a5fa'; strokeOpacity = '0.85'; strokeDasharray = '0.5,1';
+            }
             
             // Calcular puntos con margen (no desde el centro exacto)
             const margin = 2.5; // Margen en píxeles desde el borde del nodo
@@ -537,9 +509,10 @@ export const GalacticMap: React.FC<GalacticMapProps> = ({ nodes, currentNodeId, 
                 y2={endY}
                 stroke={strokeColor}
                 strokeWidth="0.1"
+                strokeOpacity={strokeOpacity}
                 strokeDasharray={strokeDasharray}
                 className="transition-all duration-500"
-                style={ isPathVisited ? { filter: 'drop-shadow(0 0 2px #34d399)' } : {}}
+                style={isPathVisited ? { filter: 'drop-shadow(0 0 2px #34d399)' } : {}}
               />
             );
           })

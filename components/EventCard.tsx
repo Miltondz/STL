@@ -71,7 +71,14 @@ export const EventCard: React.FC<EventCardProps> = ({ card, playerState, onOptio
             {card.promptText}
           </p>
         ) : (
-          <div className="h-12" /> // Placeholder to prevent layout shift
+          <div className="h-12 flex items-center justify-end">
+            <button
+              onClick={() => setTextStep(card.introText.length - 1)}
+              className="text-xs text-gray-500 hover:text-gray-300 font-mono transition-colors px-2 py-1"
+            >
+              Saltar &gt;&gt;
+            </button>
+          </div>
         )}
       </div>
 
