@@ -77,7 +77,7 @@ export const useGameHandlers = () => {
   }, [setGamePhase]);
 
   const handleStartGame = useCallback(
-    (ship: ShipData) => {
+    (ship: ShipData, starterRelicId: string) => {
       resetEventCardStates();
       resetStationImageAssignments();
       setIsVictory(false);
@@ -95,10 +95,11 @@ export const useGameHandlers = () => {
         shields: ship.maxShields,
         maxShields: ship.maxShields,
         deck: initialDeck,
+        relics: starterRelicId ? [starterRelicId] : [],
       };
       setPlayerState(newPlayerState);
 
-      const newMap = generateMap();
+      const newMap = generateMap(1);
       setMapData(newMap);
       setCurrentNodeId(newMap.startNodeId);
       addLog(`Has despegado con "${ship.name}". ¡Que la suerte te acompañe!`);
@@ -630,7 +631,7 @@ export const useGameHandlers = () => {
     };
     if (sAch) newPlayerState = grantAchievement(newPlayerState, sAch) ?? newPlayerState;
     setPlayerState(newPlayerState);
-    const newMap = generateMap();
+    const newMap = generateMap(nextSector);
     setMapData(newMap);
     setCurrentNodeId(newMap.startNodeId);
     addLog(`Entrando al Sector ${nextSector}. Bonus: ${bonusCredits} créditos.`);

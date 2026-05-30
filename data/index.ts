@@ -172,10 +172,12 @@ export function getAllCards(): Record<string, CardData> {
   if (contentLoader.isLoaded()) {
     const cardsArray = contentLoader.getCards();
     if (cardsArray.length > 0) {
-      cachedCards = cardsArray.reduce((acc, card) => {
+      const fromJson = cardsArray.reduce((acc, card) => {
         acc[card.id] = card as CardData;
         return acc;
       }, {} as Record<string, CardData>);
+      // Merge hardcoded cards not present in JSON (e.g. newly added mechanics cards)
+      cachedCards = { ...CARDS_HARDCODED as Record<string, CardData>, ...fromJson };
       return applyCardIdMapping(cachedCards);
     }
   }

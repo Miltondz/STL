@@ -106,6 +106,7 @@ export const ENEMY_TEMPLATES: Record<string, Omit<Combatant, 'hp' | 'shield' | '
     reward: { credits: 55, xpReward: 200 },
     pattern: ['DEFEND', 'ATTACK', 'ATTACK', 'BUFF', 'ATTACK_DEFEND', 'ATTACK'],
     patternIndex: 0,
+    phase2Pattern: ['HEAVY_ATTACK', 'ATTACK', 'ATTACK', 'HEAVY_ATTACK', 'ATTACK_DEFEND'],
     systems: [
       { id: 'WEAPONS', name: 'Batería Principal', icon: '⚔️', hp: 25, maxHp: 25, disabled: false, repairCountdown: 0 },
       { id: 'SHIELDS', name: 'Escudos de Combate', icon: '🛡️', hp: 22, maxHp: 22, disabled: false, repairCountdown: 0 },
@@ -122,6 +123,7 @@ export const ENEMY_TEMPLATES: Record<string, Omit<Combatant, 'hp' | 'shield' | '
     reward: { credits: 65, xpReward: 260 },
     pattern: ['ATTACK', 'ATTACK', 'DEFEND', 'BUFF', 'ATTACK', 'ATTACK_DEFEND', 'ATTACK'],
     patternIndex: 0,
+    phase2Pattern: ['HEAVY_ATTACK', 'ATTACK', 'HEAVY_ATTACK', 'BUFF', 'HEAVY_ATTACK', 'ATTACK'],
     systems: [
       { id: 'WEAPONS', name: 'Cañones de Asalto', icon: '⚔️', hp: 28, maxHp: 28, disabled: false, repairCountdown: 0 },
       { id: 'SHIELDS', name: 'Escudos Reforzados', icon: '🛡️', hp: 22, maxHp: 22, disabled: false, repairCountdown: 0 },
@@ -138,6 +140,7 @@ export const ENEMY_TEMPLATES: Record<string, Omit<Combatant, 'hp' | 'shield' | '
     reward: { credits: 80, xpReward: 320 },
     pattern: ['DEFEND', 'ATTACK', 'BUFF', 'ATTACK', 'ATTACK_DEFEND', 'ATTACK', 'BUFF', 'ATTACK'],
     patternIndex: 0,
+    phase2Pattern: ['DEBUFF', 'HEAVY_ATTACK', 'ATTACK', 'DEBUFF', 'HEAVY_ATTACK', 'ATTACK'],
     systems: [
       { id: 'WEAPONS', name: 'Matriz de Ataque', icon: '⚔️', hp: 30, maxHp: 30, disabled: false, repairCountdown: 0 },
       { id: 'SHIELDS', name: 'Campo de Fuerza', icon: '🛡️', hp: 28, maxHp: 28, disabled: false, repairCountdown: 0 },

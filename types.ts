@@ -184,7 +184,7 @@ export interface StatusEffect {
 
 // Intenciones del enemigo
 export interface EnemyIntent {
-    type: 'ATTACK' | 'DEFEND' | 'BUFF' | 'DEBUFF' | 'ATTACK_DEFEND' | 'UNKNOWN';
+    type: 'ATTACK' | 'DEFEND' | 'BUFF' | 'DEBUFF' | 'ATTACK_DEFEND' | 'HEAVY_ATTACK' | 'UNKNOWN';
     value?: number;
     secondaryValue?: number;
 }
@@ -217,6 +217,8 @@ export interface Combatant {
   pattern?: string[];
   patternIndex?: number;
   attackBuff?: number;
+  phase2Triggered?: boolean;
+  phase2Pattern?: string[];
   // Efectos de estado activos
   statuses?: StatusEffect[];
   // Ship subsystems (boss/elite enemies)

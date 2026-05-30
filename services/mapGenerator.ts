@@ -13,18 +13,44 @@ const BRANCH_LENGTH_MIN = 2;
 const BRANCH_LENGTH_MAX = 4;
 const VERTICAL_BIAS = 0.7; // 70% de probabilidad de avanzar recto hacia arriba
 
-// --- Porcentajes de Tipos de Nodo (Estilo Slay the Spire) ---
-const NODE_TYPE_PERCENTAGES: Record<NodeType, number> = {
-    [NodeType.BATTLE]: 0.44,
-    [NodeType.ENCOUNTER]: 0.22,
-    [NodeType.SHOP]: 0.02, // Colocadas estratégicamente
-    [NodeType.HAZARD]: 0.08,
-    [NodeType.ELITE]: 0, // Colocadas manualmente
-    [NodeType.REST]: 0, // Colocadas manualmente
-    [NodeType.MINI_BOSS]: 0, // Colocadas manualmente
-    [NodeType.SPECIAL_EVENT]: 0.18,
-    [NodeType.START]: 0,
-    [NodeType.END]: 0,
+// --- Porcentajes de Tipos de Nodo por Sector ---
+const NODE_TYPE_PERCENTAGES_BY_SECTOR: Record<number, Record<NodeType, number>> = {
+    1: {
+        [NodeType.BATTLE]: 0.44,
+        [NodeType.ENCOUNTER]: 0.22,
+        [NodeType.SHOP]: 0.02,
+        [NodeType.HAZARD]: 0.08,
+        [NodeType.ELITE]: 0,
+        [NodeType.REST]: 0,
+        [NodeType.MINI_BOSS]: 0,
+        [NodeType.SPECIAL_EVENT]: 0.18,
+        [NodeType.START]: 0,
+        [NodeType.END]: 0,
+    },
+    2: {
+        [NodeType.BATTLE]: 0.48,
+        [NodeType.ENCOUNTER]: 0.18,
+        [NodeType.SHOP]: 0.02,
+        [NodeType.HAZARD]: 0.12,
+        [NodeType.ELITE]: 0,
+        [NodeType.REST]: 0,
+        [NodeType.MINI_BOSS]: 0,
+        [NodeType.SPECIAL_EVENT]: 0.14,
+        [NodeType.START]: 0,
+        [NodeType.END]: 0,
+    },
+    3: {
+        [NodeType.BATTLE]: 0.50,
+        [NodeType.ENCOUNTER]: 0.12,
+        [NodeType.SHOP]: 0.02,
+        [NodeType.HAZARD]: 0.16,
+        [NodeType.ELITE]: 0,
+        [NodeType.REST]: 0,
+        [NodeType.MINI_BOSS]: 0,
+        [NodeType.SPECIAL_EVENT]: 0.14,
+        [NodeType.START]: 0,
+        [NodeType.END]: 0,
+    },
 };
 
 // Helper para elegir la siguiente columna con un sesgo vertical
@@ -49,7 +75,8 @@ const chooseNextColumn = (currentColumn: number, minCol: number, maxCol: number,
 }
 
 // --- Función Principal de Generación ---
-export const generateMap = (): MapData => {
+export const generateMap = (sector: number = 1): MapData => {
+    const NODE_TYPE_PERCENTAGES = NODE_TYPE_PERCENTAGES_BY_SECTOR[sector] ?? NODE_TYPE_PERCENTAGES_BY_SECTOR[1];
     // Reset planet assignments for new map
     resetPlanetAssignments();
     

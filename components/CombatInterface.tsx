@@ -72,6 +72,14 @@ const IntentIcon: React.FC<{ intent: EnemyIntent }> = ({ intent }) => {
             icon = '🔥'; value = ''; label = 'Carga armas (+3 daño)';
             color = 'text-orange-400'; borderColor = 'border-orange-500';
             break;
+        case 'HEAVY_ATTACK':
+            icon = '💥'; value = `${intent.value ?? ''}`; label = '¡ATAQUE PESADO!';
+            color = 'text-red-300'; borderColor = 'border-red-400';
+            break;
+        case 'DEBUFF':
+            icon = '🔋'; value = ''; label = 'Interferencia de sistemas';
+            color = 'text-purple-400'; borderColor = 'border-purple-500';
+            break;
         default:
             value = '...'; label = 'Observa';
     }
@@ -123,11 +131,16 @@ const patternIntentInfo = (action: string): { icon: string; color: string } => {
         case 'DEFEND': return { icon: '🛡️', color: 'text-cyan-300' };
         case 'BUFF': return { icon: '🔥', color: 'text-orange-300' };
         case 'ATTACK_DEFEND': return { icon: '⚔🛡', color: 'text-yellow-300' };
+        case 'HEAVY_ATTACK': return { icon: '💥', color: 'text-red-200' };
+        case 'DEBUFF': return { icon: '🔋', color: 'text-purple-300' };
         default: return { icon: '❓', color: 'text-gray-400' };
     }
 };
 
 const UpcomingIntents: React.FC<{ enemy: Combatant }> = ({ enemy }) => {
+    const phase2Imminent = !enemy.phase2Triggered && !!enemy.phase2Pattern &&
+        enemy.hp <= Math.floor(enemy.maxHp * 0.55);
+
     const upcoming = useMemo(() => {
         if (!enemy.pattern || enemy.pattern.length <= 1) return [];
         const idx = enemy.patternIndex || 0;
@@ -135,14 +148,20 @@ const UpcomingIntents: React.FC<{ enemy: Combatant }> = ({ enemy }) => {
         return [1, 2].map(offset => enemy.pattern![(idx + offset) % len]).slice(0, len - 1);
     }, [enemy.pattern, enemy.patternIndex]);
 
-    if (upcoming.length === 0) return null;
+    if (upcoming.length === 0 && !phase2Imminent) return null;
     return (
-        <div className="absolute -bottom-7 left-1/2 -translate-x-1/2 flex items-center gap-1 z-10 bg-gray-900/80 px-2 py-0.5 rounded-full border border-gray-700/50">
-            <span className="text-xs text-gray-500">↓</span>
-            {upcoming.map((p, i) => {
-                const { icon, color } = patternIntentInfo(p);
-                return <span key={i} className={`text-xs ${color} opacity-70`}>{icon}</span>;
-            })}
+        <div className={`absolute -bottom-7 left-1/2 -translate-x-1/2 flex items-center gap-1 z-10 px-2 py-0.5 rounded-full border ${phase2Imminent ? 'bg-red-950/90 border-red-500/70 animate-pulse' : 'bg-gray-900/80 border-gray-700/50'}`}>
+            {phase2Imminent ? (
+                <span className="text-xs text-red-400 font-bold whitespace-nowrap">⚠ FASE 2 INMINENTE</span>
+            ) : (
+                <>
+                    <span className="text-xs text-gray-500">↓</span>
+                    {upcoming.map((p, i) => {
+                        const { icon, color } = patternIntentInfo(p);
+                        return <span key={i} className={`text-xs ${color} opacity-70`}>{icon}</span>;
+                    })}
+                </>
+            )}
         </div>
     );
 };
@@ -282,6 +301,8 @@ export const CombatInterface: React.FC<CombatInterfaceProps> = ({ combatState, o
     const [isCardPlaying, setIsCardPlaying] = useState(false);
     const [isGameOverHandled, setIsGameOverHandled] = useState(false);
     const [isEnemyTurn, setIsEnemyTurn] = useState(false);
+    const [showPhase2Flash, setShowPhase2Flash] = useState(false);
+    const prevPhase2Triggered = useRef(enemy.phase2Triggered);
 
     // Refs a paneles para efectos
     const playerPanelRef = useRef<HTMLDivElement>(null);
@@ -366,6 +387,16 @@ export const CombatInterface: React.FC<CombatInterfaceProps> = ({ combatState, o
       prevEnemyHp.current = enemy.hp;
       prevEnemyShield.current = enemy.shield;
     }, [enemy.hp, enemy.shield]);
+
+    // Fase 2 flash: detecta cuando el boss activa Fase 2
+    useEffect(() => {
+      if (enemy.phase2Triggered && !prevPhase2Triggered.current) {
+        setShowPhase2Flash(true);
+        sfx.damage();
+        setTimeout(() => setShowPhase2Flash(false), 2000);
+      }
+      prevPhase2Triggered.current = enemy.phase2Triggered;
+    }, [enemy.phase2Triggered]);
 
     // Cleanup de timers al desmontar componente
     React.useEffect(() => {
@@ -697,9 +728,10 @@ export const CombatInterface: React.FC<CombatInterfaceProps> = ({ combatState, o
             const middleIndex = (numCards - 1) / 2;
             const offset = index - middleIndex;
 
-            const angleFactor = 10; 
-            const yFactor = 8;
-            const xMargin = -32;
+            // Clamp arc factors for large hands so cards stay readable
+            const angleFactor = numCards > 7 ? Math.max(4, 70 / numCards) : 10;
+            const yFactor = numCards > 7 ? Math.max(3, 56 / numCards) : 8;
+            const xMargin = numCards > 7 ? Math.max(-40, -22 - numCards) : -32;
 
             const rotationAngle = offset * angleFactor;
 
@@ -828,6 +860,20 @@ export const CombatInterface: React.FC<CombatInterfaceProps> = ({ combatState, o
         <div className="absolute inset-0 z-40 bg-black/60 flex items-center justify-center pointer-events-none animate-fade-in">
           <div className="font-orbitron text-3xl text-red-400 animate-pulse tracking-widest drop-shadow-lg">
             ⚔ TURNO DEL ENEMIGO ⚔
+          </div>
+        </div>
+      )}
+
+      {/* Overlay Fase 2 — flash rojo al activarse */}
+      {showPhase2Flash && (
+        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center pointer-events-none animate-fade-in"
+             style={{ background: 'radial-gradient(ellipse at center, rgba(220,38,38,0.35) 0%, rgba(0,0,0,0.7) 100%)' }}>
+          <div className="font-orbitron text-5xl text-red-400 font-bold tracking-widest drop-shadow-lg animate-pulse"
+               style={{ textShadow: '0 0 30px #ef4444, 0 0 60px #ef4444' }}>
+            ⚠ FASE 2 ⚠
+          </div>
+          <div className="font-orbitron text-xl text-red-300 mt-2 tracking-wide">
+            {enemy.name} — ¡PELIGRO EXTREMO!
           </div>
         </div>
       )}

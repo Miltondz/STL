@@ -2,13 +2,70 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { ShipData, CardInstance } from '../types';
 import { getAllShips, getAllCards } from '../data';
+import { ALL_RELICS } from '../services/relicEngine';
 import { useTypingEffect } from '../hooks/useTypingEffect';
 import { Card } from './Card';
 
 interface HangarScreenProps {
-  onStartGame: (ship: ShipData) => void;
+  onStartGame: (ship: ShipData, starterRelicId: string) => void;
   onReturnToStart: () => void;
 }
+
+const STARTER_RELIC_POOL = [
+  'REL_NUCLEAR_BATTERY', 'REL_PILOT_REFLEXES', 'REL_AMMO_OVERLOAD',
+  'REL_BLACK_BOX', 'REL_FUSION_CORE', 'REL_AEGIS_PROTOCOL',
+  'REL_SABOTAGE_KIT', 'REL_SCAVENGER_DRONE',
+];
+
+const StarterRelicPicker: React.FC<{
+  onPick: (relicId: string) => void;
+  onBack: () => void;
+}> = ({ onPick, onBack }) => {
+  const relics = useMemo(() => {
+    const shuffled = [...STARTER_RELIC_POOL].sort(() => Math.random() - 0.5);
+    return shuffled.slice(0, 3).map(id => ALL_RELICS[id]).filter(Boolean);
+  }, []);
+  const [selected, setSelected] = useState<string | null>(null);
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+      <div className="bg-gray-900/95 border border-cyan-500/40 rounded-xl p-6 max-w-2xl w-full">
+        <h2 className="text-3xl font-orbitron text-cyan-300 text-center mb-1">Reliquia Inicial</h2>
+        <p className="text-gray-400 text-center text-sm mb-6">Elige una reliquia para comenzar tu run.</p>
+        <div className="flex gap-4 justify-center mb-6">
+          {relics.map(relic => (
+            <button
+              key={relic.id}
+              onClick={() => setSelected(relic.id)}
+              className={`flex-1 p-4 rounded-lg border-2 text-left transition-all duration-200 ${
+                selected === relic.id
+                  ? 'border-cyan-400 bg-cyan-900/30 scale-105'
+                  : 'border-gray-600 bg-gray-800/40 hover:border-cyan-600 hover:bg-gray-700/40'
+              }`}
+            >
+              <div className="text-3xl text-center mb-2">{relic.icon}</div>
+              <p className="font-orbitron text-sm text-cyan-300 text-center mb-1">{relic.name}</p>
+              <p className="text-xs text-gray-300 text-center">{relic.description}</p>
+              <p className="text-xs text-yellow-500/70 text-center mt-1">{relic.rarity}</p>
+            </button>
+          ))}
+        </div>
+        <div className="flex gap-3 justify-center">
+          <button onClick={onBack} className="px-6 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg font-orbitron text-sm text-gray-300 transition-colors">
+            Volver
+          </button>
+          <button
+            onClick={() => selected && onPick(selected)}
+            disabled={!selected}
+            className="px-8 py-2 bg-cyan-600 hover:bg-cyan-500 disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed rounded-lg font-orbitron text-sm text-white transition-colors"
+          >
+            DESPEGAR
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 // Subcomponente para una única carta de nave en la pantalla de selección
 const ShipCard: React.FC<{ ship: ShipData; isSelected: boolean; isDimmed: boolean; onSelect: () => void; animDelay: string }> = ({ ship, isSelected, isDimmed, onSelect, animDelay }) => {
@@ -56,7 +113,7 @@ const ShipCard: React.FC<{ ship: ShipData; isSelected: boolean; isDimmed: boolea
 };
 
 // Subcomponente para el panel de detalles de la nave seleccionada
-const ShipDetailsPanel: React.FC<{ ship: ShipData; onStart: () => void; onReturn: () => void; zoomedCard: CardInstance | null; setZoomedCard: (ci: CardInstance | null) => void; }> = ({ ship, onStart, onReturn, zoomedCard, setZoomedCard }) => {
+const ShipDetailsPanel: React.FC<{ ship: ShipData; onStart: () => void; onReturn: () => void; zoomedCard: CardInstance | null; setZoomedCard: (ci: CardInstance | null) => void }> = ({ ship, onStart, onReturn, zoomedCard, setZoomedCard }) => {
     const [isBusy, setIsBusy] = useState(false);
 
     const handleStart = () => {
@@ -214,6 +271,7 @@ export const HangarScreen: React.FC<HangarScreenProps> = ({ onStartGame, onRetur
   const [bgPosition, setBgPosition] = useState({ x: 0, y: 0 });
   const [zoomedCard, setZoomedCard] = useState<CardInstance | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showRelicPicker, setShowRelicPicker] = useState(false);
 
   useEffect(() => {
     document.body.classList.add('in-hangar');
@@ -283,15 +341,21 @@ export const HangarScreen: React.FC<HangarScreenProps> = ({ onStartGame, onRetur
       
       <div className="flex-grow w-full flex justify-center items-center min-h-0 relative z-10 px-4">
         {selectedShip && (
-          <ShipDetailsPanel 
-            ship={selectedShip} 
-            onStart={() => onStartGame(selectedShip)} 
+          <ShipDetailsPanel
+            ship={selectedShip}
+            onStart={() => setShowRelicPicker(true)}
             onReturn={onReturnToStart}
             zoomedCard={zoomedCard}
             setZoomedCard={setZoomedCard}
           />
         )}
       </div>
+      {showRelicPicker && selectedShip && (
+        <StarterRelicPicker
+          onPick={(relicId) => { setShowRelicPicker(false); onStartGame(selectedShip, relicId); }}
+          onBack={() => setShowRelicPicker(false)}
+        />
+      )}
 
           {/* Visor de carta ampliada */}
           {zoomedCard && (

@@ -246,33 +246,45 @@ const resolveActionQueue = (state: CombatState): CombatState => {
 
 // --- Gestión del Turno y Cartas ---
 
+// Convierte una acción de patrón string en un EnemyIntent con valores calculados.
+const computeIntentFromAction = (enemy: Combatant, action: string): EnemyIntent => {
+    const base = (enemy.baseDamage || 5) + (enemy.attackBuff || 0);
+    switch (action) {
+        case 'ATTACK':
+            return { type: 'ATTACK', value: base };
+        case 'DEFEND':
+            return { type: 'DEFEND', value: 5 };
+        case 'ATTACK_DEFEND':
+            return { type: 'ATTACK_DEFEND', value: Math.floor(base * 0.7), secondaryValue: 4 };
+        case 'BUFF':
+            return { type: 'BUFF' };
+        case 'HEAVY_ATTACK':
+            return { type: 'HEAVY_ATTACK', value: Math.floor(base * 1.8) };
+        case 'DEBUFF':
+            return { type: 'DEBUFF' };
+        default:
+            return { type: 'UNKNOWN' };
+    }
+};
+
 // Determina y establece la próxima acción del enemigo para que el jugador pueda verla.
+// También activa Fase 2 si el boss baja del 50% de HP (se detecta al inicio del siguiente turno).
 const setEnemyIntent = (state: CombatState, rng: SeededRNG): CombatState => {
     const newState = { ...state, combatants: JSON.parse(JSON.stringify(state.combatants)) };
     const enemy = newState.combatants.find(c => !c.isPlayer);
 
     if (!enemy || !enemy.pattern || enemy.dead) return state;
 
-    const patternAction = enemy.pattern[enemy.patternIndex!];
-    let intent: EnemyIntent = { type: 'UNKNOWN' };
-
-    switch (patternAction) {
-        case 'ATTACK':
-            const damage = (enemy.baseDamage || 5) + (enemy.attackBuff || 0);
-            intent = { type: 'ATTACK', value: damage };
-            break;
-        case 'DEFEND':
-            intent = { type: 'DEFEND', value: 5 };
-            break;
-        case 'ATTACK_DEFEND':
-            const halfDamage = Math.floor(((enemy.baseDamage || 5) + (enemy.attackBuff || 0)) * 0.7);
-            intent = { type: 'ATTACK_DEFEND', value: halfDamage, secondaryValue: 4 };
-            break;
-        case 'BUFF':
-            intent = { type: 'BUFF' };
-            break;
+    // Phase 2: trigger at turn start so the player can see the new intent before reacting
+    if (!enemy.phase2Triggered && enemy.phase2Pattern && enemy.hp <= Math.floor(enemy.maxHp * 0.5)) {
+        enemy.phase2Triggered = true;
+        enemy.pattern = [...enemy.phase2Pattern];
+        enemy.patternIndex = 0;
+        newState.log.push(`⚠️ ¡${enemy.name} activa Fase 2! ¡Sus ataques se vuelven más peligrosos!`);
     }
-    enemy.intent = intent;
+
+    const patternAction = enemy.pattern[enemy.patternIndex!];
+    enemy.intent = computeIntentFromAction(enemy, patternAction);
     return newState;
 }
 
@@ -626,6 +638,37 @@ export const playCard = (state: CombatState, cardInstanceId: string, targetId: s
             newState.actionQueue.push(createAction('APPLY_STATUS', player.id, targetId, actualValue || 2, { status: 'HULL_BREACH' }));
             newState.actionQueue.push(createAction('APPLY_STATUS', player.id, targetId, actualValue || 2, { status: 'OVERHEAT' }));
             break;
+        case 'EFFECT_DAMAGE_FROM_SHIELD_UNCAPPED': {
+            const uncappedShieldDmg = playerMutatable.shield || 0;
+            if (uncappedShieldDmg > 0) {
+                newState.actionQueue.push(createAction('DEAL_DAMAGE', player.id, targetId, uncappedShieldDmg + relicDmgBonus));
+            } else {
+                newState.log.push(`${player.name} no tiene escudo para el Muro Viviente.`);
+                playerMutatable.energy! += actualCost;
+                shouldExile = false;
+            }
+            break;
+        }
+        case 'EFFECT_DAMAGE_PER_DEBUFF': {
+            const enemy = newState.combatants.find(c => !c.isPlayer);
+            const debuffStacks = (enemy?.statuses || []).reduce((sum, s) => sum + (STATUS_DEFS[s.id]?.isDebuff ? s.stacks : 0), 0);
+            const debuffDmg = (actualValue || 2) * debuffStacks;
+            if (debuffDmg > 0) {
+                newState.actionQueue.push(createAction('DEAL_DAMAGE', player.id, targetId, debuffDmg + relicDmgBonus));
+                newState.log.push(`${cardData.name}: ${debuffStacks} pilas de estado × ${actualValue || 2} = ${debuffDmg} daño.`);
+            } else {
+                newState.log.push(`${cardData.name}: enemigo sin estados. Sin daño.`);
+                playerMutatable.energy! += actualCost;
+            }
+            break;
+        }
+        case 'EFFECT_DAMAGE_PER_PLAYED': {
+            const cardsThisTurn = newState.cardsPlayedThisTurn || 1;
+            const perPlayedDmg = (actualValue || 2) * cardsThisTurn;
+            newState.actionQueue.push(createAction('DEAL_DAMAGE', player.id, targetId, perPlayedDmg + relicDmgBonus));
+            newState.log.push(`${cardData.name}: ${cardsThisTurn} cartas jugadas × ${actualValue || 2} = ${perPlayedDmg} daño.`);
+            break;
+        }
         case 'EFFECT_APPLY_STATUS': {
             if (cardData.statusApply) {
                 const statusTarget = cardData.statusApply.target === 'SELF' ? player.id : targetId;
@@ -771,8 +814,22 @@ const processEnemyTurn = (state: CombatState, rng: SeededRNG): CombatState => {
 
     // WEAPONS system disabled: skip attack actions
     const weaponsSystem = enemy.systems?.find(s => s.id === 'WEAPONS');
-    if (weaponsSystem?.disabled && (intent.type === 'ATTACK' || intent.type === 'ATTACK_DEFEND')) {
+    if (weaponsSystem?.disabled && (intent.type === 'ATTACK' || intent.type === 'ATTACK_DEFEND' || intent.type === 'HEAVY_ATTACK')) {
         newState.log.push(`${enemy.name}: Armamento deshabilitado — no puede atacar este turno.`);
+        enemy.patternIndex = ((enemy.patternIndex || 0) + 1) % (enemy.pattern?.length || 1);
+        newState.phase = 'RESOLUTION';
+        return newState;
+    }
+
+    // SHIELDS system disabled: skip shield recharge actions
+    const shieldsSystem = enemy.systems?.find(s => s.id === 'SHIELDS');
+    if (shieldsSystem?.disabled && (intent.type === 'DEFEND' || intent.type === 'ATTACK_DEFEND')) {
+        newState.log.push(`${enemy.name}: Escudos deshabilitados — no puede recargar este turno.`);
+        if (intent.type === 'ATTACK_DEFEND') {
+            // still attacks, just no shield recharge
+            const attackDamage = (intent.value ?? 0) + rng.nextInt(-1, 0);
+            newState.actionQueue.push(createAction('DEAL_DAMAGE', enemy.id, player.id, Math.max(0, attackDamage)));
+        }
         enemy.patternIndex = ((enemy.patternIndex || 0) + 1) % (enemy.pattern?.length || 1);
         newState.phase = 'RESOLUTION';
         return newState;
@@ -781,7 +838,7 @@ const processEnemyTurn = (state: CombatState, rng: SeededRNG): CombatState => {
     // Piloto miss chance
     const pilotoMiss = player.crewBonuses?.pilotoMissChance || 0;
     const isMissed = pilotoMiss > 0 && (rng.next() * 100) < pilotoMiss;
-    if (isMissed && (intent.type === 'ATTACK' || intent.type === 'ATTACK_DEFEND')) {
+    if (isMissed && (intent.type === 'ATTACK' || intent.type === 'ATTACK_DEFEND' || intent.type === 'HEAVY_ATTACK')) {
         newState.log.push(`🚀 [Piloto] ¡Maniobra evasiva! El ataque de ${enemy.name} falla.`);
         enemy.patternIndex = ((enemy.patternIndex || 0) + 1) % (enemy.pattern?.length || 1);
         newState.phase = 'RESOLUTION';
@@ -790,16 +847,14 @@ const processEnemyTurn = (state: CombatState, rng: SeededRNG): CombatState => {
 
     switch (intent.type) {
         case 'ATTACK': {
-            const damage = (intent.value ?? 0) + rng.nextInt(-1, 1);
-            newState.actionQueue.push(createAction('DEAL_DAMAGE', enemy.id, player.id, Math.max(0, damage)));
+            newState.actionQueue.push(createAction('DEAL_DAMAGE', enemy.id, player.id, intent.value ?? 0));
             break;
         }
         case 'DEFEND':
             newState.actionQueue.push(createAction('RECHARGE_SHIELD', enemy.id, enemy.id, intent.value ?? 0));
             break;
         case 'ATTACK_DEFEND': {
-            const attackDamage = (intent.value ?? 0) + rng.nextInt(-1, 0);
-            newState.actionQueue.push(createAction('DEAL_DAMAGE', enemy.id, player.id, Math.max(0, attackDamage)));
+            newState.actionQueue.push(createAction('DEAL_DAMAGE', enemy.id, player.id, intent.value ?? 0));
             newState.actionQueue.push(createAction('RECHARGE_SHIELD', enemy.id, enemy.id, intent.secondaryValue ?? 0));
             break;
         }
@@ -807,6 +862,19 @@ const processEnemyTurn = (state: CombatState, rng: SeededRNG): CombatState => {
             enemy.attackBuff = (enemy.attackBuff || 0) + 3;
             newState.log.push(`${enemy.name} carga sus armas. ¡Su próximo ataque será más fuerte!`);
             break;
+        case 'HEAVY_ATTACK': {
+            newState.actionQueue.push(createAction('DEAL_DAMAGE', enemy.id, player.id, intent.value ?? 0));
+            newState.log.push(`💥 ¡${enemy.name} lanza un ATAQUE PESADO!`);
+            break;
+        }
+        case 'DEBUFF': {
+            newState.log.push(`🔋 ${enemy.name} activa interferencia de sistemas.`);
+            const debuffPlayer = newState.combatants.find(c => c.isPlayer)!;
+            debuffPlayer.statuses = applyStatus(debuffPlayer.statuses || [], 'JAMMED', 2);
+            debuffPlayer.statuses = applyStatus(debuffPlayer.statuses || [], 'OVERHEAT', 2);
+            newState.log.push(`${enemy.name} aplica Atasco y Sobrecalentamiento al jugador.`);
+            break;
+        }
         case 'UNKNOWN':
         default:
             newState.log.push(`${enemy.name} no actúa este turno.`);
