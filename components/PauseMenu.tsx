@@ -1,15 +1,18 @@
 import React, { useRef } from 'react';
 import { useGame } from '../contexts/GameContext';
-import { exportSave, importSave, deleteSave } from '../services/saveManager';
+import { exportSave, importSave } from '../services/saveManager';
+import { ACHIEVEMENTS, DIFFICULTY_LABELS } from '../constants';
+import type { Difficulty } from '../types';
 
 interface PauseMenuProps {
   onClose: () => void;
 }
 
 export const PauseMenu: React.FC<PauseMenuProps> = ({ onClose }) => {
-  const { saveCurrentGame, setGamePhase } = useGame();
+  const { saveCurrentGame, setGamePhase, difficulty, setDifficulty, playerState } = useGame();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showSettings, setShowSettings] = React.useState(false);
+  const [showAchievements, setShowAchievements] = React.useState(false);
   const [musicVolume, setMusicVolume] = React.useState(50);
   const [soundVolume, setSoundVolume] = React.useState(50);
   const [confirmDialog, setConfirmDialog] = React.useState<{
@@ -113,6 +116,35 @@ export const PauseMenu: React.FC<PauseMenuProps> = ({ onClose }) => {
     );
   }
 
+  if (showAchievements) {
+    const unlocked = playerState?.achievements || [];
+    return (
+      <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
+        <div className="bg-gray-900/90 border border-cyan-500/30 rounded-lg p-6 w-full max-w-md max-h-[80vh] flex flex-col">
+          <h2 className="font-orbitron text-xl text-yellow-400 mb-4">🏆 Logros</h2>
+          <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+            {Object.values(ACHIEVEMENTS).map(ach => {
+              const earned = unlocked.includes(ach.id);
+              return (
+                <div key={ach.id} className={`flex items-start gap-3 p-2 rounded border ${earned ? 'border-yellow-600/40 bg-yellow-900/20' : 'border-gray-700 bg-gray-800/30 opacity-50'}`}>
+                  <span className="text-2xl">{ach.icon}</span>
+                  <div>
+                    <div className={`text-sm font-bold ${earned ? 'text-yellow-300' : 'text-gray-400'}`}>{ach.name}</div>
+                    <div className="text-xs text-gray-500">{ach.description}</div>
+                  </div>
+                  {earned && <span className="ml-auto text-green-400 text-lg">✓</span>}
+                </div>
+              );
+            })}
+          </div>
+          <button onClick={() => setShowAchievements(false)} className="mt-4 w-full px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded text-white font-bold">
+            Volver
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (showSettings) {
     return (
       <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
@@ -120,6 +152,27 @@ export const PauseMenu: React.FC<PauseMenuProps> = ({ onClose }) => {
           <h2 className="font-orbitron text-2xl text-cyan-300 mb-4">⚙️ Configuración</h2>
           
           <div className="space-y-4">
+            {/* Dificultad */}
+            <div>
+              <label className="block text-cyan-300 text-sm font-bold mb-2">⚙️ Dificultad</label>
+              <div className="grid grid-cols-3 gap-2">
+                {(Object.keys(DIFFICULTY_LABELS) as Difficulty[]).map(d => (
+                  <button
+                    key={d}
+                    onClick={() => setDifficulty(d)}
+                    className={`py-2 rounded text-sm font-bold border transition-colors ${
+                      difficulty === d
+                        ? 'bg-cyan-600 border-cyan-400 text-white'
+                        : 'bg-gray-800 border-gray-600 text-gray-300 hover:bg-gray-700'
+                    }`}
+                  >
+                    {DIFFICULTY_LABELS[d].label}
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-gray-400 mt-1">{DIFFICULTY_LABELS[difficulty].description}</p>
+            </div>
+
             {/* Control de Música */}
             <div>
               <label className="block text-cyan-300 text-sm font-bold mb-2">
@@ -197,6 +250,14 @@ export const PauseMenu: React.FC<PauseMenuProps> = ({ onClose }) => {
             className="w-full px-4 py-2 bg-purple-600 hover:bg-purple-500 rounded text-white font-bold"
           >
             ⚙️ Configuración
+          </button>
+
+          {/* Logros */}
+          <button
+            onClick={() => setShowAchievements(true)}
+            className="w-full px-4 py-2 bg-yellow-600 hover:bg-yellow-500 rounded text-white font-bold"
+          >
+            🏆 Logros
           </button>
 
           {/* Separador */}

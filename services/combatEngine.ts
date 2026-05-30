@@ -1,5 +1,5 @@
 // services/combatEngine.ts
-import { PlayerState, CombatState, Action, ActionType, Combatant, CardInstance, EnemyIntent, StatusEffectId } from '../types';
+import { PlayerState, CombatState, Action, ActionType, Combatant, CardInstance, EnemyIntent, StatusEffectId, ShipSystemId, Difficulty } from '../types';
 import { getEnemyTemplates, getAllCards } from '../data';
 import { SeededRNG } from './rng';
 import {
@@ -170,7 +170,7 @@ const resolveAction = (state: CombatState, action: Action): CombatState => {
                 for (let i = 0; i < amount; i++) {
                     if (target.drawPile!.length === 0) {
                         if (target.discardPile!.length === 0) {
-                            break; 
+                            break;
                         }
                         logParts.push(`${target.name} baraja su pila de descarte.`);
                         const rng = new SeededRNG(newState.rngSeed);
@@ -187,6 +187,32 @@ const resolveAction = (state: CombatState, action: Action): CombatState => {
                 }
                 logParts.push(`${source.name} roba ${drawnCount} carta(s).`);
                 newLog = logParts.join(' ');
+            }
+            break;
+        }
+        case 'DAMAGE_SYSTEM': {
+            const systemId = action.meta?.system as ShipSystemId | undefined;
+            if (!systemId || !target.systems) {
+                newLog = `${target.name} no tiene sistemas para atacar.`;
+                break;
+            }
+            const system = target.systems.find(s => s.id === systemId);
+            if (!system || system.disabled) {
+                newLog = `Sistema ${systemId} de ${target.name} ya está deshabilitado.`;
+                break;
+            }
+            const sysDmg = action.value || 0;
+            system.hp = Math.max(0, system.hp - sysDmg);
+            newLog = `${source.name} ataca el sistema ${system.name} de ${target.name} (${sysDmg} daño, ${system.hp}/${system.maxHp} HP restante).`;
+            if (system.hp <= 0) {
+                system.disabled = true;
+                system.repairCountdown = 2;
+                newLog += ` ¡${system.name} deshabilitado!`;
+                if (systemId === 'REACTOR') {
+                    target.hp = 0;
+                    target.dead = true;
+                    newLog += ` ¡El Reactor ha sido destruido! ¡Victoria instantánea!`;
+                }
             }
             break;
         }
@@ -295,6 +321,26 @@ const startPlayerTurn = (state: CombatState, rng: SeededRNG): CombatState => {
     playerMutatable.fuego = 0;
     playerMutatable.maniobra = 0;
 
+    // Crew station bonuses: Ingeniero (shield), Comandante (energy)
+    const crewBonuses = playerMutatable.crewBonuses;
+    if (crewBonuses) {
+        if (crewBonuses.ingenieroShield > 0) {
+            playerMutatable.shield = Math.min(playerMutatable.maxShield, playerMutatable.shield + crewBonuses.ingenieroShield);
+            newState.log.push(`⚙️ Ingeniero: +${crewBonuses.ingenieroShield} escudo.`);
+        }
+        if (crewBonuses.comandanteEnergy > 0) {
+            playerMutatable.energy! += crewBonuses.comandanteEnergy;
+            newState.log.push(`👑 Comandante: +${crewBonuses.comandanteEnergy} energía.`);
+        }
+        if (crewBonuses.saboteadorActive) {
+            const sabotageEnemy = newState.combatants.find(c => !c.isPlayer);
+            if (sabotageEnemy && !sabotageEnemy.dead) {
+                sabotageEnemy.statuses = applyStatus(sabotageEnemy.statuses || [], 'BURN', 1);
+                newState.log.push(`🔪 Saboteador: +1 Incendio al enemigo.`);
+            }
+        }
+    }
+
     // Relic turn-start bonuses
     const relicTurnEffects = computeRelicTurnStartEffects(newState);
     playerMutatable.energy! += relicTurnEffects.energyBonus;
@@ -311,7 +357,7 @@ const startPlayerTurn = (state: CombatState, rng: SeededRNG): CombatState => {
         }
     }
 
-    const amount = 5 + relicTurnEffects.bonusDrawCount;
+    const amount = 5 + relicTurnEffects.bonusDrawCount + (playerMutatable.crewBonuses?.psiquicoDraw || 0);
     for (let i = 0; i < amount; i++) {
         if (playerMutatable.drawPile!.length === 0) {
             if (playerMutatable.discardPile!.length === 0) break;
@@ -344,11 +390,18 @@ const startPlayerTurn = (state: CombatState, rng: SeededRNG): CombatState => {
 
 // --- Creación y Flujo del Combate ---
 
-export const createCombat = (playerState: PlayerState, enemyId: string, seed: number): CombatState => {
+const DIFFICULTY_MULT: Record<Difficulty, { hp: number; dmg: number }> = {
+  EASY:   { hp: 0.75, dmg: 0.75 },
+  NORMAL: { hp: 1.0,  dmg: 1.0  },
+  HARD:   { hp: 1.3,  dmg: 1.3  },
+};
+
+export const createCombat = (playerState: PlayerState, enemyId: string, seed: number, difficulty: Difficulty = 'NORMAL'): CombatState => {
   const enemyTemplate = getEnemyTemplates()[enemyId];
   if (!enemyTemplate) throw new Error(`Enemigo con id "${enemyId}" no encontrado.`);
 
   const rng = new SeededRNG(seed);
+  const mult = DIFFICULTY_MULT[difficulty];
 
   const player: Combatant = {
     id: 'PLAYER',
@@ -371,13 +424,23 @@ export const createCombat = (playerState: PlayerState, enemyId: string, seed: nu
     exilePile: [],
   };
 
+  const scaledMaxHp = Math.round(enemyTemplate.maxHp * mult.hp);
+  const scaledBaseDmg = Math.round((enemyTemplate.baseDamage || 0) * mult.dmg);
+  const scaledSystems = enemyTemplate.systems?.map(s => {
+    const sHp = Math.round(s.maxHp * mult.hp);
+    return { ...s, hp: sHp, maxHp: sHp };
+  });
+
   const enemy: Combatant = {
     ...enemyTemplate,
     isPlayer: false,
-    hp: enemyTemplate.maxHp,
+    hp: scaledMaxHp,
+    maxHp: scaledMaxHp,
     shield: enemyTemplate.maxShield,
     dead: false,
     attackBuff: 0,
+    baseDamage: scaledBaseDmg || enemyTemplate.baseDamage,
+    ...(scaledSystems ? { systems: scaledSystems } : {}),
   };
   
   let initialState: CombatState = {
@@ -443,13 +506,15 @@ export const playCard = (state: CombatState, cardInstanceId: string, targetId: s
     // 3. Generar acciones basadas en el efecto
     const actualValue = (cardData.value || 0) + (affix?.valueModifier || 0);
 
-    // Relic: first-attack-per-turn damage bonus
+    // Relic + crew artillero: attack damage bonuses
     let relicDmgBonus = 0;
     if (cardData.type === 'Attack') {
         const relicCardResult = computeRelicCardDmgBonus(newState.relics, newState.relicState);
         relicDmgBonus = relicCardResult.dmgBonus;
         newState.relicState = relicCardResult.newRelicState;
         relicCardResult.logs.forEach(l => newState.log.push(l));
+        const artillero = playerMutatable.crewBonuses?.artilleroBonus || 0;
+        if (artillero > 0) relicDmgBonus += artillero;
     }
 
     switch (cardData.effectBase) {
@@ -579,13 +644,81 @@ export const playCard = (state: CombatState, cardInstanceId: string, targetId: s
             newState.actionQueue.push(createAction('APPLY_STATUS', player.id, targetId, 2, { status: 'PLASMA_LEAK' }));
             break;
         }
+        case 'EFFECT_DAMAGE_SYSTEM': {
+            const sysTarget = cardData.systemTarget;
+            if (sysTarget) {
+                newState.actionQueue.push(createAction('DAMAGE_SYSTEM', player.id, targetId, actualValue + relicDmgBonus, { system: sysTarget }));
+            } else {
+                newState.log.push(`${cardData.name}: sin sistema objetivo definido.`);
+                playerMutatable.energy! += actualCost;
+            }
+            break;
+        }
+        case 'EFFECT_DAMAGE_SYSTEM_AND_DRAW': {
+            const sysTarget = cardData.systemTarget;
+            if (sysTarget) {
+                newState.actionQueue.push(createAction('DAMAGE_SYSTEM', player.id, targetId, actualValue + relicDmgBonus, { system: sysTarget }));
+                newState.actionQueue.push(createAction('DRAW_CARDS', player.id, player.id, 1));
+            } else {
+                newState.log.push(`${cardData.name}: sin sistema objetivo definido.`);
+                playerMutatable.energy! += actualCost;
+            }
+            break;
+        }
         case 'EFFECT_NONE':
             // Curses and passive cards — no effect, no energy refund
             break;
-        case 'CREW_BASIC':
-            newState.log.push(`El ${cardData.name} es tripulación y no tiene efecto en combate.`);
-            playerMutatable.energy! += actualCost;
+        case 'CREW_BASIC': {
+            if (!playerMutatable.crewBonuses) {
+                playerMutatable.crewBonuses = {
+                    artilleroBonus: 0, pilotoMissChance: 0, ingenieroShield: 0,
+                    medicoHeal: 0, comandanteEnergy: 0, saboteadorActive: false,
+                    comercianteCredits: 0, psiquicoDraw: 0,
+                };
+            }
+            const role = cardData.subtype || '';
+            switch (role) {
+                case 'Artillero':
+                    playerMutatable.crewBonuses.artilleroBonus += 2;
+                    newState.log.push(`🎯 ${cardData.name} en estación: +2 daño en ataques.`);
+                    break;
+                case 'Piloto':
+                    playerMutatable.crewBonuses.pilotoMissChance = Math.min(80, playerMutatable.crewBonuses.pilotoMissChance + 20);
+                    newState.log.push(`🚀 ${cardData.name} en estación: 20% esquivar ataques enemigos.`);
+                    break;
+                case 'Ingeniero':
+                    playerMutatable.crewBonuses.ingenieroShield += 3;
+                    newState.log.push(`⚙️ ${cardData.name} en estación: +3 escudo al inicio de turno.`);
+                    break;
+                case 'Científico':
+                case 'Médico':
+                    playerMutatable.crewBonuses.medicoHeal += 2;
+                    newState.log.push(`💊 ${cardData.name} en estación: +2 reparación al final de turno.`);
+                    break;
+                case 'Comandante':
+                    playerMutatable.crewBonuses.comandanteEnergy += 1;
+                    newState.log.push(`👑 ${cardData.name} en estación: +1 energía por turno.`);
+                    break;
+                case 'Saboteador':
+                    playerMutatable.crewBonuses.saboteadorActive = true;
+                    newState.log.push(`🔪 ${cardData.name} en estación: +1 Incendio al enemigo cada turno.`);
+                    break;
+                case 'Comerciante':
+                    playerMutatable.crewBonuses.comercianteCredits += 15;
+                    newState.log.push(`💰 ${cardData.name} en estación: +15 créditos al ganar.`);
+                    break;
+                case 'Psíquico':
+                    playerMutatable.crewBonuses.psiquicoDraw += 1;
+                    newState.log.push(`🔮 ${cardData.name} en estación: +1 carta robada por turno.`);
+                    break;
+                default:
+                    playerMutatable.crewBonuses.ingenieroShield += 1;
+                    newState.log.push(`👤 ${cardData.name} en estación: +1 escudo/turno.`);
+                    break;
+            }
+            shouldExile = true;
             break;
+        }
         default:
             console.warn(`[CombatEngine] effectBase desconocido: "${cardData.effectBase}". Energía devuelta.`);
             newState.log.push(`${cardData.name} no tiene efecto en combate.`);
@@ -635,6 +768,25 @@ const processEnemyTurn = (state: CombatState, rng: SeededRNG): CombatState => {
     }
 
     const intent = enemy.intent;
+
+    // WEAPONS system disabled: skip attack actions
+    const weaponsSystem = enemy.systems?.find(s => s.id === 'WEAPONS');
+    if (weaponsSystem?.disabled && (intent.type === 'ATTACK' || intent.type === 'ATTACK_DEFEND')) {
+        newState.log.push(`${enemy.name}: Armamento deshabilitado — no puede atacar este turno.`);
+        enemy.patternIndex = ((enemy.patternIndex || 0) + 1) % (enemy.pattern?.length || 1);
+        newState.phase = 'RESOLUTION';
+        return newState;
+    }
+
+    // Piloto miss chance
+    const pilotoMiss = player.crewBonuses?.pilotoMissChance || 0;
+    const isMissed = pilotoMiss > 0 && (rng.next() * 100) < pilotoMiss;
+    if (isMissed && (intent.type === 'ATTACK' || intent.type === 'ATTACK_DEFEND')) {
+        newState.log.push(`🚀 [Piloto] ¡Maniobra evasiva! El ataque de ${enemy.name} falla.`);
+        enemy.patternIndex = ((enemy.patternIndex || 0) + 1) % (enemy.pattern?.length || 1);
+        newState.phase = 'RESOLUTION';
+        return newState;
+    }
 
     switch (intent.type) {
         case 'ATTACK': {
@@ -709,6 +861,25 @@ export const resolveTurn = (initialState: CombatState): CombatState => {
         resolvedState = tickStatusesAtTurnEnd(resolvedState);
     }
 
+    // 3.5 Tick repair countdowns for disabled ship systems
+    if (resolvedState.phase !== 'GAME_OVER') {
+        const sysLogs: string[] = [];
+        const combatantsAfterSysTick = resolvedState.combatants.map(c => {
+            if (!c.systems) return c;
+            const newSystems = c.systems.map(sys => {
+                if (!sys.disabled || sys.repairCountdown <= 0) return sys;
+                const newCountdown = sys.repairCountdown - 1;
+                if (newCountdown === 0) {
+                    sysLogs.push(`🔧 ${sys.name} de ${c.name} se ha reparado parcialmente.`);
+                    return { ...sys, disabled: false, repairCountdown: 0, hp: Math.floor(sys.maxHp * 0.5) };
+                }
+                return { ...sys, repairCountdown: newCountdown };
+            });
+            return { ...c, systems: newSystems };
+        });
+        resolvedState = { ...resolvedState, combatants: combatantsAfterSysTick, log: [...resolvedState.log, ...sysLogs] };
+    }
+
     // 4. Relic turn-end effects (e.g. black box hand-empty check, aegis protocol)
     if (resolvedState.phase !== 'GAME_OVER') {
         const playerForRelics = resolvedState.combatants.find(c => c.isPlayer)!;
@@ -722,6 +893,18 @@ export const resolveTurn = (initialState: CombatState): CombatState => {
             const p = combatants.find((c: any) => c.isPlayer);
             if (p) p.hp = Math.min(p.maxHp, p.hp + hullRepair);
             resolvedState = { ...resolvedState, combatants };
+        }
+    }
+
+    // 4.5 Crew: Médico heal at turn end
+    if (resolvedState.phase !== 'GAME_OVER') {
+        const playerForMedic = resolvedState.combatants.find(c => c.isPlayer)!;
+        const medicoHeal = playerForMedic.crewBonuses?.medicoHeal || 0;
+        if (medicoHeal > 0) {
+            const combatants = JSON.parse(JSON.stringify(resolvedState.combatants));
+            const p = combatants.find((c: Combatant) => c.isPlayer);
+            if (p) p.hp = Math.min(p.maxHp, p.hp + medicoHeal);
+            resolvedState = { ...resolvedState, combatants, log: [...resolvedState.log, `💊 [Médico] +${medicoHeal} casco reparado.`] };
         }
     }
 

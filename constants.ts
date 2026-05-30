@@ -1,4 +1,4 @@
-import { NodeType, EventCardData, PlayerState, CardInstance } from './types';
+import { NodeType, EventCardData, PlayerState, CardInstance, Difficulty } from './types';
 
 // Define colores para cada tipo de nodo para una fácil identificación visual.
 export const NODE_COLORS: Record<NodeType, string> = {
@@ -9,6 +9,8 @@ export const NODE_COLORS: Record<NodeType, string> = {
   [NodeType.HAZARD]: 'text-orange-400',
   [NodeType.MINI_BOSS]: 'text-purple-400',
   [NodeType.SPECIAL_EVENT]: 'text-cyan-400',
+  [NodeType.ELITE]: 'text-pink-400',
+  [NodeType.REST]: 'text-teal-400',
   [NodeType.END]: 'text-green-200',
 };
 
@@ -47,6 +49,34 @@ export const BASE_PLAYER_STATE: Omit<PlayerState, 'name' | 'fuel' | 'credits' | 
   bonusEnergy: 0,
   relics: [],
   relicState: {},
+  sector: 1,
+};
+
+export interface AchievementDef {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+}
+
+export const ACHIEVEMENTS: Record<string, AchievementDef> = {
+  'FIRST_BLOOD':        { id: 'FIRST_BLOOD',        name: 'Primera Sangre',       description: 'Gana tu primer combate.',                       icon: '⚔️' },
+  'SECTOR_1_CLEAR':     { id: 'SECTOR_1_CLEAR',      name: 'Frontera Libre',       description: 'Completa el Sector 1.',                         icon: '🏆' },
+  'SECTOR_2_CLEAR':     { id: 'SECTOR_2_CLEAR',      name: 'Pirata Cazado',        description: 'Completa el Sector 2.',                         icon: '🏴‍☠️' },
+  'SECTOR_3_CLEAR':     { id: 'SECTOR_3_CLEAR',      name: 'Nexo Destruido',       description: 'Completa el Sector 3 — ¡Victoria!',             icon: '🌟' },
+  'GHOST_IN_THE_MACHINE': { id: 'GHOST_IN_THE_MACHINE', name: 'Fantasma en la Máquina', description: 'Descifra el fragmento de IA.',              icon: '🤖' },
+  'FLAWLESS':           { id: 'FLAWLESS',            name: 'Sin Arañazos',         description: 'Gana un combate sin recibir daño al casco.',    icon: '🛡️' },
+  'REACTOR_BREACH':     { id: 'REACTOR_BREACH',      name: 'Colapso Nuclear',      description: 'Destruye el reactor de un jefe.',               icon: '☢️' },
+  'RELIC_COLLECTOR':    { id: 'RELIC_COLLECTOR',     name: 'Coleccionista',        description: 'Acumula 5 reliquias en una partida.',           icon: '🔮' },
+  'CREW_MASTER':        { id: 'CREW_MASTER',         name: 'Capitán Veterano',     description: 'Asigna 3 tripulantes en un solo combate.',      icon: '👥' },
+  'DECKMASTER':         { id: 'DECKMASTER',          name: 'Maestro de Mazos',     description: 'Llega al Sector 2 con más de 20 cartas.',       icon: '🃏' },
+  'PACIFIST':           { id: 'PACIFIST',            name: 'Pacifista',            description: 'Supera un encuentro sin daño al enemigo.',      icon: '☮️' },
+};
+
+export const DIFFICULTY_LABELS: Record<Difficulty, { label: string; description: string; color: string }> = {
+  EASY:   { label: 'Fácil',         description: 'Enemigos con 75% HP y daño.',        color: 'text-green-400' },
+  NORMAL: { label: 'Normal',        description: 'Experiencia estándar.',               color: 'text-cyan-400'  },
+  HARD:   { label: 'Difícil',       description: 'Enemigos con 130% HP y daño.',       color: 'text-red-400'   },
 };
 
 

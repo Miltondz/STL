@@ -11,6 +11,7 @@ import {
   EventOption,
   ShopCard,
   ShopServiceType,
+  Difficulty,
 } from '../types';
 import { saveGame, loadGame, deleteSave } from '../services/saveManager';
 import { resetEventCardStates } from '../services/eventManager';
@@ -28,12 +29,15 @@ type GamePhase =
   | 'RELIC_REWARD'
   | 'LEVEL_UP'
   | 'SIMULATION_RESULT'
+  | 'REST_SITE'
+  | 'SECTOR_COMPLETE'
   | 'GAME_OVER';
 
 interface GameState {
   // Phase
   gamePhase: GamePhase;
   contentLoaded: boolean;
+  difficulty: Difficulty;
 
   // Core State
   playerState: PlayerState | null;
@@ -47,18 +51,22 @@ interface GameState {
   eventResult: EventConsequenceResult | null;
   activeCombat: CombatState | null;
   preCombatEnemyId: string | null;
+  preCombatIsElite: boolean;
+  preCombatIsBoss: boolean;
   cardRewards: string[];
   rewardTitle: string;
   relicRewards: string[];
   shopInventory: ShopInventory | null;
   simulationResult: SimulationResult | null;
   pendingLevelUps: number;
+  isVictory: boolean;
 }
 
 interface GameActions {
   // Phase transitions
   setGamePhase: (phase: GamePhase) => void;
   setContentLoaded: (loaded: boolean) => void;
+  setDifficulty: (d: Difficulty) => void;
 
   // Core actions
   setPlayerState: (state: PlayerState | null) => void;
@@ -72,12 +80,15 @@ interface GameActions {
   setEventResult: (result: EventConsequenceResult | null) => void;
   setActiveCombat: (combat: CombatState | null) => void;
   setPreCombatEnemyId: (id: string | null) => void;
+  setPreCombatIsElite: (v: boolean) => void;
+  setPreCombatIsBoss: (v: boolean) => void;
   setCardRewards: (rewards: string[]) => void;
   setRewardTitle: (title: string) => void;
   setRelicRewards: (rewards: string[]) => void;
   setShopInventory: (inventory: ShopInventory | null) => void;
   setSimulationResult: (result: SimulationResult | null) => void;
   setPendingLevelUps: (count: React.SetStateAction<number>) => void;
+  setIsVictory: (v: boolean) => void;
 
   // Save/Load
   saveCurrentGame: () => boolean;
@@ -105,6 +116,7 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
   // State
   const [gamePhase, setGamePhase] = useState<GamePhase>('START_SCREEN');
   const [contentLoaded, setContentLoaded] = useState(false);
+  const [difficulty, setDifficulty] = useState<Difficulty>('NORMAL');
 
   const [playerState, setPlayerState] = useState<PlayerState | null>(null);
   const [mapData, setMapData] = useState<MapData | null>(null);
@@ -116,12 +128,15 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
   const [eventResult, setEventResult] = useState<EventConsequenceResult | null>(null);
   const [activeCombat, setActiveCombat] = useState<CombatState | null>(null);
   const [preCombatEnemyId, setPreCombatEnemyId] = useState<string | null>(null);
+  const [preCombatIsElite, setPreCombatIsElite] = useState(false);
+  const [preCombatIsBoss, setPreCombatIsBoss] = useState(false);
   const [cardRewards, setCardRewards] = useState<string[]>([]);
   const [rewardTitle, setRewardTitle] = useState('Elige tu Recompensa');
   const [relicRewards, setRelicRewards] = useState<string[]>([]);
   const [shopInventory, setShopInventory] = useState<ShopInventory | null>(null);
   const [simulationResult, setSimulationResult] = useState<SimulationResult | null>(null);
   const [pendingLevelUps, setPendingLevelUps] = useState(0);
+  const [isVictory, setIsVictory] = useState(false);
 
   // Actions
   const addLog = useCallback((message: string) => {
@@ -171,17 +186,18 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
   }, [playerState, mapData, currentNodeId, gamePhase, saveCurrentGame]);
 
   const value = useMemo<GameContextValue>(() => ({
-    gamePhase, contentLoaded, playerState, mapData, currentNodeId, logs, isTraveling,
-    activeEvent, eventResult, activeCombat, preCombatEnemyId, cardRewards, rewardTitle,
-    relicRewards, shopInventory, simulationResult, pendingLevelUps,
-    setGamePhase, setContentLoaded, setPlayerState, setMapData, setCurrentNodeId,
+    gamePhase, contentLoaded, difficulty, playerState, mapData, currentNodeId, logs, isTraveling,
+    activeEvent, eventResult, activeCombat, preCombatEnemyId, preCombatIsElite, preCombatIsBoss,
+    cardRewards, rewardTitle, relicRewards, shopInventory, simulationResult, pendingLevelUps, isVictory,
+    setGamePhase, setContentLoaded, setDifficulty, setPlayerState, setMapData, setCurrentNodeId,
     addLog, setIsTraveling, setActiveEvent, setEventResult, setActiveCombat,
-    setPreCombatEnemyId, setCardRewards, setRewardTitle, setRelicRewards, setShopInventory,
-    setSimulationResult, setPendingLevelUps, saveCurrentGame, loadSavedGame, deleteSavedGame,
+    setPreCombatEnemyId, setPreCombatIsElite, setPreCombatIsBoss,
+    setCardRewards, setRewardTitle, setRelicRewards, setShopInventory,
+    setSimulationResult, setPendingLevelUps, setIsVictory, saveCurrentGame, loadSavedGame, deleteSavedGame,
   }), [
-    gamePhase, contentLoaded, playerState, mapData, currentNodeId, logs, isTraveling,
-    activeEvent, eventResult, activeCombat, preCombatEnemyId, cardRewards, rewardTitle,
-    relicRewards, shopInventory, simulationResult, pendingLevelUps,
+    gamePhase, contentLoaded, difficulty, playerState, mapData, currentNodeId, logs, isTraveling,
+    activeEvent, eventResult, activeCombat, preCombatEnemyId, preCombatIsElite, preCombatIsBoss,
+    cardRewards, rewardTitle, relicRewards, shopInventory, simulationResult, pendingLevelUps, isVictory,
     addLog, saveCurrentGame, loadSavedGame,
   ]);
 

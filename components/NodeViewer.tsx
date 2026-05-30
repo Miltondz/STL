@@ -32,6 +32,8 @@ const getNodeDescription = (type: NodeType): string => {
     [NodeType.SHOP]: 'ESTACIÓN COMERCIAL - Puerto seguro con comerciantes y servicios de reparación.',
     [NodeType.HAZARD]: 'PELIGRO GALÁCTICO - Zona con fenómenos espaciales peligrosos. Procede con cautela.',
     [NodeType.MINI_BOSS]: 'AMENAZA MAYOR - Se detecta una nave capital enemiga. Peligro extremo.',
+    [NodeType.ELITE]: 'ENEMIGO ÉLITE - Combatiente de alto rango. La victoria garantiza una reliquia.',
+    [NodeType.REST]: 'SITIO DE DESCANSO - Zona segura. Repara el casco, elimina o mejora una carta.',
     [NodeType.SPECIAL_EVENT]: 'EVENTO ESPECIAL - Anomalía espacial única detectada. Situación impredecible.',
     [NodeType.END]: 'DESTINO FINAL - Has alcanzado tu objetivo. El sector está completo.',
   };
@@ -47,6 +49,8 @@ const getNodeTypeName = (type: NodeType): string => {
     [NodeType.SHOP]: 'TIENDA',
     [NodeType.HAZARD]: 'PELIGRO',
     [NodeType.MINI_BOSS]: 'JEFE',
+    [NodeType.ELITE]: 'ÉLITE',
+    [NodeType.REST]: 'DESCANSO',
     [NodeType.SPECIAL_EVENT]: 'ESPECIAL',
     [NodeType.END]: 'FINAL',
   };

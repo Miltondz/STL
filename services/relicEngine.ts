@@ -310,7 +310,7 @@ export const applyRelicsOnCombatVictory = (
 
   if ((state.relics || []).includes('REL_BULWARK_HEART') && combatRelicState) {
     const bwState = combatRelicState['REL_BULWARK_HEART'];
-    if (bwState && bwState.hullDamageTaken === false) {
+    if (!bwState?.hullDamageTaken) {
       const repair = ALL_RELICS['REL_BULWARK_HEART'].effect.value || 5;
       logs.push(`💠 Corazón Bastión: sin daño al casco — repara ${repair}.`);
       state = { ...state, hull: Math.min(state.maxHull, state.hull + repair) };

@@ -1,12 +1,16 @@
 // types.ts
 
+export type Difficulty = 'EASY' | 'NORMAL' | 'HARD';
+
 // --- Tipos de Juego Centrales ---
 export enum NodeType {
   START = 'INICIO',
   BATTLE = 'BATALLA',
+  ELITE = 'ELITE',
   ENCOUNTER = 'ENCUENTRO',
   SHOP = 'TIENDA',
   HAZARD = 'PELIGRO',
+  REST = 'DESCANSO',
   MINI_BOSS = 'MINI-JEFE',
   SPECIAL_EVENT = 'EVENTO ESPECIAL',
   END = 'FINAL',
@@ -56,6 +60,7 @@ export interface CardData {
   upgradedVersion?: Partial<Pick<CardData, 'cost' | 'value' | 'description' | 'hits'>>;
   possibleAffixes?: CardAffix[];
   image?: string; // URL de la imagen para retratos de tripulación
+  systemTarget?: ShipSystemId; // For System-Strike cards
 }
 
 export interface CardInstance {
@@ -113,6 +118,20 @@ export interface PlayerState {
   bonusEnergy?: number; // Extra energy per combat, awarded by level-up ENERGY reward
   relics: string[];
   relicState: { [relicId: string]: { used?: boolean } };
+  sector: number; // 1 = first sector, 2, 3 = final
+}
+
+// --- Ship Systems ---
+export type ShipSystemId = 'WEAPONS' | 'SHIELDS' | 'ENGINES' | 'CREW' | 'REACTOR';
+
+export interface ShipSystem {
+  id: ShipSystemId;
+  name: string;
+  icon: string;
+  hp: number;
+  maxHp: number;
+  disabled: boolean;
+  repairCountdown: number; // turns until re-enabled
 }
 
 // --- Tipos de Relics ---
@@ -200,6 +219,19 @@ export interface Combatant {
   attackBuff?: number;
   // Efectos de estado activos
   statuses?: StatusEffect[];
+  // Ship subsystems (boss/elite enemies)
+  systems?: ShipSystem[];
+  // Active crew station bonuses (set during combat when crew cards are played)
+  crewBonuses?: {
+    artilleroBonus: number;     // flat +N dmg on all player attacks
+    pilotoMissChance: number;   // N% chance enemy attacks miss
+    ingenieroShield: number;    // +N shield at start of each turn
+    medicoHeal: number;         // +N hull repair at end of each turn
+    comandanteEnergy: number;   // +N energy per turn
+    saboteadorActive: boolean;  // apply 1 BURN to enemy each turn start
+    comercianteCredits: number; // +N credits added to victory reward
+    psiquicoDraw: number;       // +N cards drawn per turn
+  };
 }
 
 
@@ -211,7 +243,8 @@ export type ActionType =
   | 'GAIN_ENERGY'
   | 'GAIN_RESOURCE'
   | 'DRAW_CARDS'
-  | 'APPLY_STATUS';
+  | 'APPLY_STATUS'
+  | 'DAMAGE_SYSTEM';
 
 export interface Action {
   id: string; // id único para la acción

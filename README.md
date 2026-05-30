@@ -1,53 +1,67 @@
 # Navegador Galáctico Procedural
 
-Roguelike de exploración espacial y combate por turnos con construcción de mazos. Viaja por un sector generado proceduralmente, toma decisiones narrativas, libra combates tácticos y mejora tu nave y tripulación.
+Roguelike de exploración espacial y combate por turnos con construcción de mazos. Inspirado en FTL y Slay the Spire. Viaja por sectores generados proceduralmente, libra combates tácticos, gestiona tripulación y reliquias, y derrota a tres jefes para completar la galaxia.
 
+---
 
-## Características principales
-- Mapa galáctico procedural con nodos de Encuentro, Peligro, Combate, Tienda y Jefe.
-- Combate por turnos con cartas (coste de energía, escudos, recursos como Fuego/Maniobra).
-- Eventos narrativos con requisitos (tripulantes, créditos, banderas) y resultados probabilísticos.
-- Intenciones del enemigo visibles (ataque/defensa/mixto) para planificar el turno.
-- Sistema de guardado automático versionado (localStorage) + Exportar/Importar partidas (JSON).
-- **Efectos visuales retro CRT**: Monitor estilo terminal antiguo con scanlines, efectos Matrix y texto animado tipo alien.
-- **Componente RetroMonitor reutilizable**: Sistema modular para aplicar efectos CRT en cualquier parte del juego.
-- Efectos visuales: números flotantes, partículas de daño/escudo/curación, temblores de panel.
-- Carga dinámica de contenido desde JSON (naves, cartas, eventos) con fallback a datos locales.
-- Editor web de contenido (cartas, naves, eventos) en `./editor/`.
-- **Menú de pausa mejorado**: Configuración de audio, guardar y salir, abandonar juego con modales personalizados.
+## Características
 
+### Estructura de juego
+- **3 sectores** con progresión de dificultad y jefe al final de cada uno.
+- Mapa procedural con nodos: Combate, Élite, Descanso, Encuentro, Peligro, Tienda, Jefe.
+- **3 dificultades**: Fácil / Normal / Difícil — escalan HP y daño de enemigos.
+- Pantalla de fin de run con estadísticas y logros desbloqueados.
 
-## Cómo jugar (rápido)
-- Doble clic en una carta de tu mano para jugarla.
-- Tras ~2s la carta aplica un efecto especial (giro/temblor), luego turbulencia y se resuelven sus efectos.
-- Observa la intención del enemigo (borde amarillo) para decidir.
-- Usa el botón **☰ MENÚ** en el panel de estado para acceder a:
-  - Continuar juego
-  - Guardar y salir
-  - Configuración de audio (música y efectos)
-  - Exportar/Importar partidas
-  - Abandonar juego
+### Combate
+- Combate por turnos con mano de cartas, coste de energía y descarte automático.
+- **Intenciones del enemigo** visibles (ataque/defensa/refuerzo/mixto).
+- **Sistemas de nave** del enemigo: WEAPONS, SHIELDS, ENGINES, CREW, REACTOR — dañables e inutilizables; destruir REACTOR = victoria inmediata.
+- **Estados de alteración**: BURN, JAMMED, HULL_BREACH, OVERHEAT, OVERCHARGE, REGENERATE, etc.
+- Pre-combate con vista del enemigo antes de confirmar.
 
+### Cartas y mazo
+- **Palabras clave**: EXHAUST, RETAIN, ETHEREAL, INNATE, MULTI_HIT.
+- **Tripulación como cartas** (8 tipos): Artillero, Piloto, Ingeniero, Científico, Comandante, Saboteador, Comerciante, Psíquico — cada una aplica un bonus pasivo para todo el combate al ser jugada (EXHAUST).
+- Mejora de cartas en tiendas y sitios de descanso.
+- Eliminación de cartas en sitios de descanso.
 
-## Demo local
+### Reliquias
+- +15 reliquias con efectos únicos (daño extra, escudo, créditos, efectos al inicio de turno, etc.).
+- Nodos Élite garantizan recompensa de reliquia.
+- Tienda puede ofrecer una carta gratuita si tienes REL_SMUGGLER_CONTACT.
+
+### Sitios de descanso
+- Elegir entre: Reparar casco (30% máx), Eliminar carta del mazo, Mejorar carta del mazo.
+
+### Eventos narrativos
+- Mazos de encuentro y peligro sin repeticiones por run.
+- Requisitos por tripulantes, créditos o banderas; resultados probabilísticos.
+
+### Logros
+- 11 logros desbloqueables por run (primera victoria, sectores completados, sin daño, REACTOR destruido, etc.).
+- Visibles en menú de pausa y pantalla de fin de run.
+
+### Guardado
+- Auto-save en fase IN_GAME con debounce 2s (localStorage, formato v2).
+- Exportar / Importar partidas como JSON desde el menú de pausa.
+- Pantalla inicial con opción "Continuar Partida".
+
+---
+
+## Desarrollo local
+
 ```bash
 npm install
-npm run dev
-# abre http://localhost:5173
-```
-
-Build y preview de producción:
-```bash
+npm run dev        # http://localhost:5173
 npm run build
 npm run preview
 ```
 
-Tests (Vitest):
+Tests:
 ```bash
-npm test              # interactivo
-npm run test:run      # CI
-npm run test:ui       # UI de Vitest
-npm run test:run -- services/saveManager.export_import.test.ts  # un archivo
+npm test                    # Vitest interactivo
+npm run test:run            # CI
+npm run test:run -- services/saveManager.test.ts  # archivo único
 ```
 
 Type-check:
@@ -55,71 +69,45 @@ Type-check:
 npx tsc -p tsconfig.json --noEmit
 ```
 
+---
 
-## Arquitectura (alto nivel)
-- Entrada: `index.tsx` monta la app y proveedores.
-- Orquestación: `App.tsx` decide qué pantalla mostrar (Start, Hangar, Mapa, Evento, Combate, Tienda, Recompensa, etc.).
-- Estado global: `contexts/GameContext.tsx` (jugador, mapa, combate/eventos, logs) + auto‑guardado con debounce.
-- Acciones del juego: `hooks/useGameHandlers.ts` encapsula handlers (viajar, resolver eventos, combate, tienda).
-- Servicios:
-  - `services/saveManager.ts`: guardar/cargar/exportar/importar (v1), validaciones básicas.
-  - `services/contentLoader.ts`: carga y cachea `public/data/content.json` y expone getters tipados.
-  - `services/eventManager.ts`: mazos de encuentro/peligro sin repeticiones por run, resolución de consecuencias.
-  - `services/combatEngine.ts`, `services/mapGenerator.ts`, `services/shopManager.ts`, `services/rng.ts`.
-- UI clave: `components/GalacticMap.tsx`, `components/CombatInterface.tsx`, `components/EventCard.tsx`, `components/ShopModal.tsx`, `components/StartScreen.tsx`, `components/PauseMenu.tsx`.
-- Efectos/animaciones: `index.css` (cardfx-*, partículas y panel-shake).
+## Arquitectura
 
-Documentación de diseño y roadmap:
-- `REFACTOR_SUMMARY.md` (refactor Fase 1: Context + Guardado + FX)
-- `CODEBASE_ANALYSIS.md` (mejoras y roadmap)
-- `CONTENT-SYSTEM.md`, `ARCHITECTURE_SUMMARY.md`, `EVENT_CHAINS_DESIGN.md` (sistema de contenido y narrativa)
+**Stack:** React 19 + TypeScript + Vite + Tailwind. Sin router — `App.tsx` renderiza pantallas por `gamePhase`.
 
+**Máquina de estados** (`GamePhase`):
+```
+START_SCREEN → HANGAR → IN_GAME → NODE_ACTION_PENDING
+  → PRE_COMBAT → COMBAT → CARD_REWARD / RELIC_REWARD / LEVEL_UP
+  → REST_SITE | SHOP | EVENT | SIMULATION_RESULT
+  → SECTOR_COMPLETE → IN_GAME (nuevo sector)
+  → GAME_OVER
+```
 
-## Sistema de contenido
-- JSON principal en `public/data/content.json` (naves, cartas, encuentros, peligros, tiendas, cadenas…).
-- `contentLoader` intenta cargar ese JSON al inicio; si falta, usa datos locales de `data/` y `constants.ts`.
-- Editor: `./editor/index.html` para CRUD visual y exportación de JSON.
+**Capas:**
+- `contexts/GameContext.tsx` — fuente de verdad única (jugador, mapa, combate, eventos). Auto-save en IN_GAME/PRE_COMBAT con debounce.
+- `hooks/useGameHandlers.ts` — todos los handlers de acción; llama a servicios y actualiza contexto.
+- `services/` — lógica pura sin React:
+  - `combatEngine.ts` — jugar cartas, daño, escudos, sistemas de nave, turnos del enemigo.
+  - `relicEngine.ts` — efectos de reliquias en combate, victoria, tienda y movimiento.
+  - `statusEngine.ts` — tick y resolución de estados de alteración.
+  - `mapGenerator.ts` — generación procedural de nodos y capas.
+  - `eventManager.ts` — mazos de encuentro/peligro, resolución de consecuencias.
+  - `contentLoader.ts` — carga `public/data/content.json`, fallback a `data/`.
+  - `saveManager.ts` — localStorage, formato v2, export/import JSON.
+  - `shopManager.ts`, `rng.ts`, `logManager.ts`, `imageRegistry.ts`.
+- `components/` — presentacionales; reciben props/callbacks.
+- `data/` — catálogos locales de fallback (`cards.ts`, `enemies.ts`, `ships.ts`).
+- `types.ts` — todos los tipos de dominio (archivo único).
+- `constants.ts` — colores de nodos, rareza, balance, logros, dificultades.
 
+**Sistema de contenido:** Fuente principal `public/data/content.json`. `contentLoader` valida con Zod en `services/validationSchemas.ts`. Editor en `editor/index.html` (JS vanilla).
 
-## Guardado y gestión de partidas
-- Auto‑save cuando el juego está en fase IN_GAME (debounce 2s) usando `saveManager`.
-- Menú de pausa (⏸️): Guardar ahora, Exportar JSON, Importar JSON, Eliminar partida.
-- Start Screen: botón “💾 Continuar Partida” si hay guardado.
+**CardInstance vs CardData:** `CardData` es la plantilla. `CardInstance` (con `instanceId` + `CardAffix` opcional) vive en el mazo del jugador.
 
-
-## Estructura de carpetas (resumen)
-- `components/` UI del juego (mapa, combate, cartas, modales, pausa).
-  - `RetroMonitor.tsx` — Componente reutilizable para efectos CRT retro con columnas Matrix y texto animado
-  - `NodeViewer.tsx` — Panel lateral con mini monitor CRT mostrando el nodo actual
-  - `NodeAnalysisScreen.tsx` — Pantalla de análisis de sector con efectos CRT ligeros
-  - `PauseMenu.tsx` — Menú de pausa con configuración y modales personalizados
-- `services/` reglas y lógica del juego (guardado, contenido, eventos, combate, mapa).
-- `data/` catálogos locales (en migración a JSON).
-- `types.ts` y `types/*` tipos de dominio (incluye esquemas de contenido y de cadenas narrativas).
-- `editor/` herramienta web para crear/editar contenido y exportar JSON.
-
+---
 
 ## Requisitos
+
 - Node.js 18+
 - npm 9+
-
-
-## Scripts
-- `npm run dev` — servidor de desarrollo.
-- `npm run build` — build de producción (Vite).
-- `npm run preview` — servir build local.
-- `npm test` / `npm run test:run` / `npm run test:ui` — pruebas.
-
-
-## Nuevas características (última actualización)
-- ✅ **Efectos CRT retro**: Componente `RetroMonitor` con scanlines, gradientes animados y efectos Matrix
-- ✅ **Texto Matrix animado**: Columnas verticales de caracteres japoneses/binarios con velocidades variables
-- ✅ **Líneas de texto horizontal**: Efecto de tecleado con colores aleatorios simulando análisis alien
-- ✅ **Menú de pausa mejorado**: Configuración de audio, guardar y salir, modales personalizados
-- ✅ **Modales del juego**: Reemplazo completo de alerts/confirms del sistema por diálogos personalizados
-
-## Roadmap breve
-- Tutorial interactivo y mejoras de feedback visual.
-- Migración completa a contenido JSON (cartas, eventos, tiendas, cadenas).
-- Sistema de audio funcional (música y efectos de sonido).
-- Más pruebas (services y flujos críticos) y CI.

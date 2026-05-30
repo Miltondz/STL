@@ -38,6 +38,7 @@ describe('saveManager', () => {
     achievements: [],
     relics: [],
     relicState: {},
+    sector: 1,
   };
 
   const mockMapData: MapData = {

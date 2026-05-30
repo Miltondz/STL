@@ -24,6 +24,9 @@ import { StartScreen } from './components/StartScreen';
 import { NodeViewer } from './components/NodeViewer';
 import { NodeAnalysisScreen } from './components/NodeAnalysisScreen';
 import { PauseMenu } from './components/PauseMenu';
+import { RestSiteModal } from './components/RestSiteModal';
+import { SectorCompleteScreen } from './components/SectorCompleteScreen';
+import { GameOverScreen } from './components/GameOverScreen';
 
 // Services
 import contentLoader from './services/contentLoader';
@@ -48,6 +51,7 @@ function App() {
     shopInventory,
     simulationResult,
     pendingLevelUps,
+    isVictory,
     setContentLoaded,
   } = useGame();
 
@@ -73,6 +77,8 @@ function App() {
     handleExitNode,
     handleEscapeCombat,
     handleShopAccess,
+    handleRestOption,
+    handleSectorComplete,
   } = useGameHandlers();
   
   const { setGamePhase } = useGame();
@@ -115,6 +121,8 @@ function App() {
       case 'RELIC_REWARD':
       case 'LEVEL_UP':
       case 'SIMULATION_RESULT':
+      case 'REST_SITE':
+      case 'SECTOR_COMPLETE':
         document.body.classList.add('in-game');
         break;
       default:
@@ -240,11 +248,20 @@ function App() {
        {gamePhase === 'LEVEL_UP' && pendingLevelUps > 0 && (
           <LevelUpModal newLevel={playerState.level - pendingLevelUps + 1} onSelectReward={handleLevelUpReward} />
       )}
-      {gamePhase === 'GAME_OVER' && (
-          <GenericModal title="Fin de la Partida" onClose={() => setGamePhase('START_SCREEN')}>
-            <p className="text-lg text-red-400">Tu nave ha sido destruida o te has quedado sin opciones. Tu viaje termina aquí.</p>
-          </GenericModal>
-       )}
+      {gamePhase === 'GAME_OVER' && playerState && (
+        <GameOverScreen
+          playerState={playerState}
+          isVictory={isVictory}
+          onClose={() => setGamePhase('START_SCREEN')}
+        />
+      )}
+
+      {gamePhase === 'REST_SITE' && playerState && (
+        <RestSiteModal playerState={playerState} onSelectOption={handleRestOption} />
+      )}
+      {gamePhase === 'SECTOR_COMPLETE' && playerState && (
+        <SectorCompleteScreen playerState={playerState} onContinue={handleSectorComplete} />
+      )}
 
       {isPauseOpen && <PauseMenu onClose={() => setIsPauseOpen(false)} />}
     </div>

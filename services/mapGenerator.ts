@@ -15,12 +15,14 @@ const VERTICAL_BIAS = 0.7; // 70% de probabilidad de avanzar recto hacia arriba
 
 // --- Porcentajes de Tipos de Nodo (Estilo Slay the Spire) ---
 const NODE_TYPE_PERCENTAGES: Record<NodeType, number> = {
-    [NodeType.BATTLE]: 0.47,
-    [NodeType.ENCOUNTER]: 0.25,
-    [NodeType.SHOP]: 0.02, // Reducido porque ahora se colocan estratégicamente
-    [NodeType.HAZARD]: 0.08, // Representa a los "Elites"
-    [NodeType.MINI_BOSS]: 0, // Se colocan manualmente
-    [NodeType.SPECIAL_EVENT]: 0.15, // Aumentado para compensar
+    [NodeType.BATTLE]: 0.44,
+    [NodeType.ENCOUNTER]: 0.22,
+    [NodeType.SHOP]: 0.02, // Colocadas estratégicamente
+    [NodeType.HAZARD]: 0.08,
+    [NodeType.ELITE]: 0, // Colocadas manualmente
+    [NodeType.REST]: 0, // Colocadas manualmente
+    [NodeType.MINI_BOSS]: 0, // Colocadas manualmente
+    [NodeType.SPECIAL_EVENT]: 0.18,
     [NodeType.START]: 0,
     [NodeType.END]: 0,
 };
@@ -269,17 +271,35 @@ export const generateMap = (): MapData => {
         }
     });
     
-    // Colocación incremental de Mini-Jefes en puntos clave
+    // Colocación incremental de Mini-Jefes, ELITE y REST en puntos clave
     mainPaths.forEach(path => {
-        if (path.length > 5) { // Asegurarse de que el camino es suficientemente largo
+        if (path.length > 5) {
             const thirdIndex = Math.floor(path.length / 3);
             const twoThirdsIndex = Math.floor(path.length * 2 / 3);
-            
+
             if (path[thirdIndex] && path[thirdIndex].type === NodeType.BATTLE) {
                 path[thirdIndex].type = NodeType.MINI_BOSS;
             }
             if (path[twoThirdsIndex] && path[twoThirdsIndex].type === NodeType.BATTLE) {
                 path[twoThirdsIndex].type = NodeType.MINI_BOSS;
+            }
+        }
+
+        if (path.length > 8) {
+            // ELITE nodes at ~40% and ~75%
+            const elite1Index = Math.floor(path.length * 0.40);
+            const elite2Index = Math.floor(path.length * 0.75);
+            if (path[elite1Index] && path[elite1Index].type === NodeType.BATTLE) {
+                path[elite1Index].type = NodeType.ELITE;
+            }
+            if (path[elite2Index] && path[elite2Index].type === NodeType.BATTLE) {
+                path[elite2Index].type = NodeType.ELITE;
+            }
+
+            // REST node at ~58%
+            const restIndex = Math.floor(path.length * 0.58);
+            if (path[restIndex] && path[restIndex].type === NodeType.BATTLE) {
+                path[restIndex].type = NodeType.REST;
             }
         }
     });

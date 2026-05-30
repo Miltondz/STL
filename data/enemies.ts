@@ -2,8 +2,8 @@
 import { Combatant } from '../types';
 
 // Plantillas para crear Combatants enemigos.
-// El estado (hp, shield, etc.) se inicializará al crear el combate.
 export const ENEMY_TEMPLATES: Record<string, Omit<Combatant, 'hp' | 'shield' | 'dead' | 'isPlayer'>> = {
+  // --- Regular enemies ---
   PIRATE_RAIDER: {
     id: 'PIRATE_RAIDER',
     name: 'Incursor Pirata',
@@ -26,6 +26,30 @@ export const ENEMY_TEMPLATES: Record<string, Omit<Combatant, 'hp' | 'shield' | '
     pattern: ['DEFEND', 'ATTACK', 'ATTACK'],
     patternIndex: 0,
   },
+  SCAVENGER_SHIP: {
+    id: 'SCAVENGER_SHIP',
+    name: 'Nave Carroñera',
+    image: 'https://i.ibb.co/cc3KwbCG/ship-50-pirata.jpg',
+    maxHp: 25,
+    maxShield: 8,
+    baseDamage: 6,
+    reward: { credits: 10, xpReward: 30 },
+    pattern: ['ATTACK', 'ATTACK', 'DEFEND', 'ATTACK'],
+    patternIndex: 0,
+  },
+  PATROL_FRIGATE: {
+    id: 'PATROL_FRIGATE',
+    name: 'Fragata Patrullera',
+    image: 'https://i.ibb.co/S7JwCS5b/ship-30-destructor.jpg',
+    maxHp: 35,
+    maxShield: 15,
+    baseDamage: 6,
+    reward: { credits: 14, xpReward: 45 },
+    pattern: ['DEFEND', 'ATTACK', 'DEFEND', 'ATTACK', 'BUFF'],
+    patternIndex: 0,
+  },
+
+  // --- Mini-boss ---
   MINIBOSS_CORVETTE: {
     id: 'MINIBOSS_CORVETTE',
     name: 'Corbeta de Élite',
@@ -34,8 +58,91 @@ export const ENEMY_TEMPLATES: Record<string, Omit<Combatant, 'hp' | 'shield' | '
     maxShield: 25,
     baseDamage: 8,
     reward: { credits: 30, xpReward: 100 },
-    // Este patrón es más complejo: se defiende, ataca, luego se potencia para un gran ataque.
     pattern: ['DEFEND', 'ATTACK', 'BUFF', 'ATTACK'],
     patternIndex: 0,
+  },
+
+  // --- Elite enemies (guaranteed relic on defeat) ---
+  ELITE_MARAUDER: {
+    id: 'ELITE_MARAUDER',
+    name: 'Merodeador de Élite',
+    image: 'https://i.ibb.co/cc3KwbCG/ship-50-pirata.jpg',
+    maxHp: 45,
+    maxShield: 15,
+    baseDamage: 10,
+    reward: { credits: 22, xpReward: 85 },
+    pattern: ['ATTACK', 'BUFF', 'ATTACK_DEFEND', 'ATTACK'],
+    patternIndex: 0,
+    systems: [
+      { id: 'WEAPONS', name: 'Armamento', icon: '⚔️', hp: 18, maxHp: 18, disabled: false, repairCountdown: 0 },
+      { id: 'SHIELDS', name: 'Escudos', icon: '🛡️', hp: 15, maxHp: 15, disabled: false, repairCountdown: 0 },
+    ],
+  },
+  ELITE_WARSHIP: {
+    id: 'ELITE_WARSHIP',
+    name: 'Nave de Guerra Élite',
+    image: 'https://i.ibb.co/S7JwCS5b/ship-30-destructor.jpg',
+    maxHp: 60,
+    maxShield: 20,
+    baseDamage: 12,
+    reward: { credits: 28, xpReward: 110 },
+    pattern: ['DEFEND', 'ATTACK', 'BUFF', 'ATTACK', 'ATTACK_DEFEND'],
+    patternIndex: 0,
+    systems: [
+      { id: 'WEAPONS', name: 'Cañones', icon: '⚔️', hp: 22, maxHp: 22, disabled: false, repairCountdown: 0 },
+      { id: 'SHIELDS', name: 'Escudos', icon: '🛡️', hp: 20, maxHp: 20, disabled: false, repairCountdown: 0 },
+      { id: 'ENGINES', name: 'Propulsores', icon: '⚡', hp: 15, maxHp: 15, disabled: false, repairCountdown: 0 },
+    ],
+  },
+
+  // --- Bosses (sector end nodes) ---
+  BOSS_HEGEMONY_DESTROYER: {
+    id: 'BOSS_HEGEMONY_DESTROYER',
+    name: 'Destructor de la Hegemonía',
+    image: 'https://i.ibb.co/S7JwCS5b/ship-30-destructor.jpg',
+    maxHp: 90,
+    maxShield: 30,
+    baseDamage: 15,
+    reward: { credits: 55, xpReward: 200 },
+    pattern: ['DEFEND', 'ATTACK', 'ATTACK', 'BUFF', 'ATTACK_DEFEND', 'ATTACK'],
+    patternIndex: 0,
+    systems: [
+      { id: 'WEAPONS', name: 'Batería Principal', icon: '⚔️', hp: 25, maxHp: 25, disabled: false, repairCountdown: 0 },
+      { id: 'SHIELDS', name: 'Escudos de Combate', icon: '🛡️', hp: 22, maxHp: 22, disabled: false, repairCountdown: 0 },
+      { id: 'ENGINES', name: 'Propulsores', icon: '⚡', hp: 18, maxHp: 18, disabled: false, repairCountdown: 0 },
+    ],
+  },
+  BOSS_PIRATE_DREADNOUGHT: {
+    id: 'BOSS_PIRATE_DREADNOUGHT',
+    name: 'Dreadnought Pirata',
+    image: 'https://i.ibb.co/cc3KwbCG/ship-50-pirata.jpg',
+    maxHp: 115,
+    maxShield: 25,
+    baseDamage: 18,
+    reward: { credits: 65, xpReward: 260 },
+    pattern: ['ATTACK', 'ATTACK', 'DEFEND', 'BUFF', 'ATTACK', 'ATTACK_DEFEND', 'ATTACK'],
+    patternIndex: 0,
+    systems: [
+      { id: 'WEAPONS', name: 'Cañones de Asalto', icon: '⚔️', hp: 28, maxHp: 28, disabled: false, repairCountdown: 0 },
+      { id: 'SHIELDS', name: 'Escudos Reforzados', icon: '🛡️', hp: 22, maxHp: 22, disabled: false, repairCountdown: 0 },
+      { id: 'REACTOR', name: 'Reactor Principal', icon: '☢️', hp: 35, maxHp: 35, disabled: false, repairCountdown: 0 },
+    ],
+  },
+  BOSS_AI_NEXUS: {
+    id: 'BOSS_AI_NEXUS',
+    name: 'Nexo IA Autónomo',
+    image: 'https://i.ibb.co/fYVmhtxT/ship-52-dron.jpg',
+    maxHp: 135,
+    maxShield: 35,
+    baseDamage: 20,
+    reward: { credits: 80, xpReward: 320 },
+    pattern: ['DEFEND', 'ATTACK', 'BUFF', 'ATTACK', 'ATTACK_DEFEND', 'ATTACK', 'BUFF', 'ATTACK'],
+    patternIndex: 0,
+    systems: [
+      { id: 'WEAPONS', name: 'Matriz de Ataque', icon: '⚔️', hp: 30, maxHp: 30, disabled: false, repairCountdown: 0 },
+      { id: 'SHIELDS', name: 'Campo de Fuerza', icon: '🛡️', hp: 28, maxHp: 28, disabled: false, repairCountdown: 0 },
+      { id: 'CREW', name: 'Módulo de IA', icon: '🤖', hp: 22, maxHp: 22, disabled: false, repairCountdown: 0 },
+      { id: 'REACTOR', name: 'Core de IA', icon: '☢️', hp: 40, maxHp: 40, disabled: false, repairCountdown: 0 },
+    ],
   },
 };

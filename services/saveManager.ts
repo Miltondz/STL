@@ -70,7 +70,7 @@ export const loadGame = (): GameSave | null => {
     }
 
     // Validación básica
-    if (!save.playerState || !save.mapData || save.currentNodeId === undefined) {
+    if (!save.playerState || !save.mapData || save.currentNodeId == null) {
       console.error('[SaveManager] Datos de guardado inválidos');
       return null;
     }

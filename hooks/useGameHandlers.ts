@@ -1,7 +1,8 @@
 // hooks/useGameHandlers.ts
 import { useCallback } from 'react';
 import { useGame } from '../contexts/GameContext';
-import { ShipData, EventOption, CombatState, ShopCard, ShopServiceType, CardInstance, NodeType, CardAffix } from '../types';
+import { ShipData, EventOption, CombatState, ShopCard, ShopServiceType, CardInstance, NodeType, CardAffix, Difficulty } from '../types';
+import { ACHIEVEMENTS } from '../constants';
 import { BASE_PLAYER_STATE, LEVEL_THRESHOLDS } from '../constants';
 import { sfx } from '../services/soundManager';
 import { generateMap } from '../services/mapGenerator';
@@ -29,9 +30,13 @@ export const useGameHandlers = () => {
     currentNodeId,
     activeCombat,
     preCombatEnemyId,
+    preCombatIsElite,
+    preCombatIsBoss,
     pendingLevelUps,
     relicRewards,
+    difficulty,
     setGamePhase,
+    setDifficulty,
     setPlayerState,
     setMapData,
     setCurrentNodeId,
@@ -41,13 +46,27 @@ export const useGameHandlers = () => {
     setEventResult,
     setActiveCombat,
     setPreCombatEnemyId,
+    setPreCombatIsElite,
+    setPreCombatIsBoss,
     setCardRewards,
     setRewardTitle,
     setRelicRewards,
     setShopInventory,
     setSimulationResult,
     setPendingLevelUps,
+    setIsVictory,
   } = useGame();
+
+  const grantAchievement = useCallback((state: typeof playerState, achievementId: string): typeof playerState => {
+    if (!state || state.achievements.includes(achievementId)) return state;
+    const def = ACHIEVEMENTS[achievementId];
+    addLog(`🏆 Logro: ${def?.name ?? achievementId}`);
+    return { ...state, achievements: [...state.achievements, achievementId] };
+  }, [addLog]);
+
+  const handleSetDifficulty = useCallback((d: Difficulty) => {
+    setDifficulty(d);
+  }, [setDifficulty]);
 
   const handleShowHangar = useCallback(() => {
     setGamePhase('HANGAR');
@@ -60,7 +79,8 @@ export const useGameHandlers = () => {
   const handleStartGame = useCallback(
     (ship: ShipData) => {
       resetEventCardStates();
-      resetStationImageAssignments(); // Reset station image assignments for new game
+      resetStationImageAssignments();
+      setIsVictory(false);
 
       const initialDeck = ship.initialDeck.map(createCardInstance);
       const newPlayerState = {
@@ -109,8 +129,13 @@ export const useGameHandlers = () => {
       setGamePhase('EVENT');
     } else if (resolution.combat) {
       setPreCombatEnemyId(resolution.combat.enemyId);
+      setPreCombatIsElite(resolution.combat.isElite || false);
+      setPreCombatIsBoss(resolution.combat.isBoss || false);
       setGamePhase('PRE_COMBAT');
       addLog('¡Contacto hostil detectado!');
+    } else if (resolution.rest) {
+      setGamePhase('REST_SITE');
+      addLog('Has llegado a un sitio de descanso.');
     } else if (resolution.shop) {
       let inventory = generateShopInventory();
       const shopRelicResult = applyRelicsOnShopEntered(playerState);
@@ -128,7 +153,7 @@ export const useGameHandlers = () => {
       addLog(resolution.simulation.log);
       setGamePhase('SIMULATION_RESULT');
     }
-  }, [playerState, mapData, currentNodeId, addLog, setActiveEvent, setPreCombatEnemyId, setGamePhase, setShopInventory, setSimulationResult, setPlayerState]);
+  }, [playerState, mapData, currentNodeId, addLog, setActiveEvent, setPreCombatEnemyId, setPreCombatIsElite, setPreCombatIsBoss, setGamePhase, setShopInventory, setSimulationResult, setPlayerState]);
 
   const handleNodeSelect = useCallback(
     (nodeId: number) => {
@@ -161,11 +186,13 @@ export const useGameHandlers = () => {
         setPlayerState(newPlayerState);
 
         const nodeHasAction = [
-            NodeType.BATTLE, 
-            NodeType.MINI_BOSS, 
-            NodeType.ENCOUNTER, 
+            NodeType.BATTLE,
+            NodeType.MINI_BOSS,
+            NodeType.ELITE,
+            NodeType.REST,
+            NodeType.ENCOUNTER,
             NodeType.HAZARD,
-            NodeType.SHOP, 
+            NodeType.SHOP,
             NodeType.SPECIAL_EVENT,
             NodeType.END
         ].includes(selectedNode.type);
@@ -212,14 +239,17 @@ export const useGameHandlers = () => {
     (option: EventOption) => {
       if (!playerState) return;
       const result = option.consequence(playerState);
+      let newState = result.newState;
+      if (result.achievementId) {
+        newState = grantAchievement(newState, result.achievementId) ?? newState;
+      }
       setEventResult(result);
-      setPlayerState(result.newState);
+      setPlayerState(newState);
       if (result.reactionText) addLog(`💬 ${result.reactionText}`);
       addLog(result.log);
       if (result.xpGained) handleGainXp(result.xpGained);
-      if (result.achievementId) addLog(`🏆 Logro Desbloqueado: ${result.achievementId}`);
     },
-    [playerState, setEventResult, setPlayerState, addLog, handleGainXp]
+    [playerState, setEventResult, setPlayerState, addLog, handleGainXp, grantAchievement]
   );
 
   const handleEventComplete = useCallback(() => {
@@ -235,7 +265,7 @@ export const useGameHandlers = () => {
   const handleStartCombat = useCallback(() => {
     if (!playerState || !preCombatEnemyId) return;
     try {
-      const newCombat = combatEngine.createCombat(playerState, preCombatEnemyId, Date.now());
+      const newCombat = combatEngine.createCombat(playerState, preCombatEnemyId, Date.now(), difficulty);
       setActiveCombat(newCombat);
       setGamePhase('COMBAT');
       setPreCombatEnemyId(null);
@@ -273,9 +303,11 @@ export const useGameHandlers = () => {
       if (finalState.victory) {
         const creditsGained = enemyCombatant.reward?.credits || 0;
         const xpGained = enemyCombatant.reward?.xpReward || 0;
+        const comercianteCredits = playerCombatant.crewBonuses?.comercianteCredits || 0;
 
-        newState.credits += creditsGained;
+        newState.credits += creditsGained + comercianteCredits;
         addLog(`Recuperas ${creditsGained} créditos de los restos.`);
+        if (comercianteCredits > 0) addLog(`💰 [Comerciante] Bonus: +${comercianteCredits} créditos.`);
 
         // REL_PIRATE_FLAG + REL_BULWARK_HEART: bonus on victory
         const relicVictoryResult = applyRelicsOnCombatVictory(newState, finalState.relicState);
@@ -284,9 +316,59 @@ export const useGameHandlers = () => {
           relicVictoryResult.logs.forEach(l => addLog(l));
         }
 
+        // Achievement triggers
+        newState = grantAchievement(newState, 'FIRST_BLOOD') ?? newState;
+        const noHullDamageTaken = !finalState.relicState?.REL_BULWARK_HEART?.hullDamageTaken
+          && (playerCombatant.hp === playerCombatant.maxHp || !finalState.log.some(l => l.includes('El casco recibe')));
+        if (noHullDamageTaken) newState = grantAchievement(newState, 'FLAWLESS') ?? newState;
+        if ((newState.relics || []).length >= 5) newState = grantAchievement(newState, 'RELIC_COLLECTOR') ?? newState;
+        if (newState.deck.length > 20) newState = grantAchievement(newState, 'DECKMASTER') ?? newState;
+        const crewBonuses = playerCombatant.crewBonuses;
+        if (crewBonuses) {
+          const activeCrewCount = [crewBonuses.artilleroBonus > 0, crewBonuses.pilotoMissChance > 0,
+            crewBonuses.ingenieroShield > 0, crewBonuses.medicoHeal > 0, crewBonuses.comandanteEnergy > 0,
+            crewBonuses.saboteadorActive, crewBonuses.comercianteCredits > 0, crewBonuses.psiquicoDraw > 0]
+            .filter(Boolean).length;
+          if (activeCrewCount >= 3) newState = grantAchievement(newState, 'CREW_MASTER') ?? newState;
+        }
+        const enemyId = enemyCombatant.id;
+        if ((enemyId === 'BOSS_PIRATE_DREADNOUGHT' || enemyId === 'BOSS_AI_NEXUS')
+          && finalState.log.some(l => l.includes('Reactor'))) {
+          newState = grantAchievement(newState, 'REACTOR_BREACH') ?? newState;
+        }
+
         setPlayerState(newState);
         if (xpGained > 0) handleGainXp(xpGained);
 
+        const wasBoss = preCombatIsBoss;
+        const wasElite = preCombatIsElite;
+        setPreCombatIsElite(false);
+        setPreCombatIsBoss(false);
+
+        // Boss fight: skip card/relic rewards, go to sector complete screen
+        if (wasBoss) {
+          setActiveCombat(null);
+          setGamePhase('SECTOR_COMPLETE');
+          return;
+        }
+
+        // Elite fight: guaranteed relic, no card reward
+        if (wasElite) {
+          setCardRewards([]);
+          const ownedAfterElite = newState.relics || [];
+          const unownedAfterElite = Object.keys(ALL_RELICS).filter(id => !ownedAfterElite.includes(id));
+          if (unownedAfterElite.length > 0) {
+            const shuffledEliteRelics = [...unownedAfterElite].sort(() => 0.5 - Math.random());
+            setRelicRewards(shuffledEliteRelics.slice(0, Math.min(3, shuffledEliteRelics.length)));
+          } else {
+            setRelicRewards([]);
+          }
+          setActiveCombat(null);
+          setGamePhase('RELIC_REWARD');
+          return;
+        }
+
+        // Regular battle: card reward + optional relic
         const allCardValues = Object.values(getAllCards());
         const rewards = allCardValues.filter(
           (c) => (c.rarity === 'Uncommon' || c.rarity === 'Common') && c.price > 0
@@ -328,7 +410,7 @@ export const useGameHandlers = () => {
       }
       setActiveCombat(null);
     },
-    [playerState, addLog, setPlayerState, handleGainXp, setCardRewards, setRewardTitle, setGamePhase, setActiveCombat]
+    [playerState, addLog, setPlayerState, handleGainXp, setCardRewards, setRewardTitle, setRelicRewards, setGamePhase, setActiveCombat, preCombatIsElite, preCombatIsBoss, setPreCombatIsElite, setPreCombatIsBoss]
   );
 
   const handleCardRewardSelect = useCallback(
@@ -470,6 +552,92 @@ export const useGameHandlers = () => {
     }
   }, [pendingLevelUps, setSimulationResult, setGamePhase]);
 
+  const UPGRADE_AFFIX_REST: CardAffix = {
+    name: 'Mejorada',
+    description: '+2 efecto, -1 coste',
+    costModifier: -1,
+    valueModifier: 2,
+  };
+
+  const handleRestOption = useCallback(
+    (option: 'HEAL' | 'REMOVE_CARD' | 'UPGRADE_CARD', cardInstanceId?: string) => {
+      if (!playerState) return;
+
+      if (option === 'HEAL') {
+        const healAmount = Math.floor(playerState.maxHull * 0.3);
+        const newHull = Math.min(playerState.maxHull, playerState.hull + healAmount);
+        const actual = newHull - playerState.hull;
+        setPlayerState({ ...playerState, hull: newHull });
+        addLog(`Sitio de descanso: reparas ${actual} puntos de casco.`);
+      } else if (option === 'REMOVE_CARD' && cardInstanceId) {
+        setPlayerState({ ...playerState, deck: playerState.deck.filter(c => c.instanceId !== cardInstanceId) });
+        addLog('Sitio de descanso: eliminaste una carta de tu mazo.');
+      } else if (option === 'UPGRADE_CARD' && cardInstanceId) {
+        const newDeck = playerState.deck.map(c => {
+          if (c.instanceId !== cardInstanceId || c.affix) return c;
+          const cardData = getAllCards()[c.cardId];
+          const upgraded = cardData?.upgradedVersion;
+          const affix: CardAffix = upgraded ? {
+            name: 'Mejorada',
+            description: upgraded.description ?? cardData.description,
+            costModifier: upgraded.cost !== undefined ? upgraded.cost - cardData.cost : -1,
+            valueModifier: upgraded.value !== undefined ? upgraded.value - (cardData.value || 0) : 2,
+          } : UPGRADE_AFFIX_REST;
+          return { ...c, affix };
+        });
+        setPlayerState({ ...playerState, deck: newDeck });
+        addLog('Sitio de descanso: mejoraste una carta de tu mazo.');
+      }
+
+      if (pendingLevelUps > 0) {
+        setGamePhase('LEVEL_UP');
+      } else {
+        setGamePhase('IN_GAME');
+      }
+    },
+    [playerState, setPlayerState, addLog, pendingLevelUps, setGamePhase]
+  );
+
+  const handleSectorComplete = useCallback(() => {
+    if (!playerState) return;
+    const nextSector = (playerState.sector || 1) + 1;
+
+    const sectorAchievements: Record<number, string> = { 1: 'SECTOR_1_CLEAR', 2: 'SECTOR_2_CLEAR', 3: 'SECTOR_3_CLEAR' };
+    const sAch = sectorAchievements[playerState.sector || 1];
+
+    if (nextSector > 3) {
+      addLog('¡Has completado todos los sectores! ¡La galaxia está a salvo!');
+      let finalState = { ...playerState };
+      if (sAch) finalState = grantAchievement(finalState, sAch) ?? finalState;
+      setPlayerState(finalState);
+      setIsVictory(true);
+      setGamePhase('GAME_OVER');
+      return;
+    }
+
+    resetEventCardStates();
+    resetStationImageAssignments();
+
+    const bonusCredits = (playerState.sector || 1) * 20;
+    let newPlayerState = {
+      ...playerState,
+      sector: nextSector,
+      credits: playerState.credits + bonusCredits,
+    };
+    if (sAch) newPlayerState = grantAchievement(newPlayerState, sAch) ?? newPlayerState;
+    setPlayerState(newPlayerState);
+    const newMap = generateMap();
+    setMapData(newMap);
+    setCurrentNodeId(newMap.startNodeId);
+    addLog(`Entrando al Sector ${nextSector}. Bonus: ${bonusCredits} créditos.`);
+
+    if (pendingLevelUps > 0) {
+      setGamePhase('LEVEL_UP');
+    } else {
+      setGamePhase('IN_GAME');
+    }
+  }, [playerState, setPlayerState, setMapData, setCurrentNodeId, addLog, pendingLevelUps, setGamePhase, grantAchievement]);
+
   const handleExitNode = useCallback(() => {
     setGamePhase('IN_GAME');
   }, [setGamePhase]);
@@ -522,5 +690,8 @@ export const useGameHandlers = () => {
     handleExitNode,
     handleEscapeCombat,
     handleShopAccess,
+    handleRestOption,
+    handleSectorComplete,
+    handleSetDifficulty,
   };
 };

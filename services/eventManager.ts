@@ -71,13 +71,14 @@ const getSimulatedNodeResolution = (type: NodeType, state: PlayerState): Simulat
 
 // Función principal que determina qué evento ocurre en un nodo.
 export const resolveNode = (
-    nodeType: NodeType, 
+    nodeType: NodeType,
     playerState: PlayerState
-): { 
-    card?: EventCardData, 
+): {
+    card?: EventCardData,
     simulation?: SimulationResult,
-    combat?: { enemyId: string },
-    shop?: boolean
+    combat?: { enemyId: string; isElite?: boolean; isBoss?: boolean },
+    shop?: boolean,
+    rest?: boolean,
 } => {
   switch (nodeType) {
     case NodeType.ENCOUNTER:
@@ -86,23 +87,39 @@ export const resolveNode = (
       return { card: getHazardCard() };
     case NodeType.BATTLE: {
       const allEnemies = getEnemyTemplates();
-      // Convention: miniboss IDs must start with 'MINIBOSS_' to be excluded from regular battles
-      const regularEnemies = Object.keys(allEnemies).filter(id => !id.startsWith('MINIBOSS_'));
+      const regularEnemies = Object.keys(allEnemies).filter(id =>
+        !id.startsWith('MINIBOSS_') && !id.startsWith('ELITE_') && !id.startsWith('BOSS_')
+      );
       const pool = regularEnemies.length > 0 ? regularEnemies : Object.keys(allEnemies);
       return { combat: { enemyId: pool[Math.floor(Math.random() * pool.length)] } };
     }
     case NodeType.MINI_BOSS:
       return { combat: { enemyId: 'MINIBOSS_CORVETTE' } };
+    case NodeType.ELITE: {
+      const allEnemies = getEnemyTemplates();
+      const eliteEnemies = Object.keys(allEnemies).filter(id => id.startsWith('ELITE_'));
+      const pool = eliteEnemies.length > 0 ? eliteEnemies : ['MINIBOSS_CORVETTE'];
+      return { combat: { enemyId: pool[Math.floor(Math.random() * pool.length)], isElite: true } };
+    }
+    case NodeType.REST:
+      return { rest: true };
     case NodeType.SHOP:
-        return { shop: true };
-    case NodeType.END:
-        // Batalla final con un enemigo placeholder hasta que se cree el boss final
-        return { combat: { enemyId: 'MINIBOSS_CORVETTE' } };
+      return { shop: true };
+    case NodeType.END: {
+      const sector = playerState.sector || 1;
+      const bossMap: Record<number, string> = {
+        1: 'BOSS_HEGEMONY_DESTROYER',
+        2: 'BOSS_PIRATE_DREADNOUGHT',
+        3: 'BOSS_AI_NEXUS',
+      };
+      const bossId = bossMap[sector] || 'BOSS_HEGEMONY_DESTROYER';
+      return { combat: { enemyId: bossId, isBoss: true } };
+    }
     case NodeType.SPECIAL_EVENT:
-        return { card: getSpecialEventCard() };
+      return { card: getSpecialEventCard() };
     case NodeType.START:
-        return { simulation: { newState: playerState, log: "Has llegado al punto de partida." }};
+      return { simulation: { newState: playerState, log: "Has llegado al punto de partida." } };
     default:
-        return { simulation: { newState: playerState, log: `Llegas a un nodo de tipo ${nodeType}.` } };
+      return { simulation: { newState: playerState, log: `Llegas a un nodo de tipo ${nodeType}.` } };
   }
 };

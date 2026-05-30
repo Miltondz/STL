@@ -501,6 +501,34 @@ export const CombatInterface: React.FC<CombatInterfaceProps> = ({ combatState, o
               </div>
             </div>
             <StatusBar statuses={player.statuses} />
+            {player.crewBonuses && (
+              <div className="mt-1 flex flex-wrap gap-1">
+                {player.crewBonuses.artilleroBonus > 0 && (
+                  <span className="text-xs bg-red-900/50 border border-red-600/40 rounded px-1" title="Artillero: +daño en ataques">🎯+{player.crewBonuses.artilleroBonus}</span>
+                )}
+                {player.crewBonuses.pilotoMissChance > 0 && (
+                  <span className="text-xs bg-blue-900/50 border border-blue-600/40 rounded px-1" title="Piloto: esquivar ataques">🚀{player.crewBonuses.pilotoMissChance}%</span>
+                )}
+                {player.crewBonuses.ingenieroShield > 0 && (
+                  <span className="text-xs bg-cyan-900/50 border border-cyan-600/40 rounded px-1" title="Ingeniero: escudo/turno">⚙️+{player.crewBonuses.ingenieroShield}</span>
+                )}
+                {player.crewBonuses.medicoHeal > 0 && (
+                  <span className="text-xs bg-green-900/50 border border-green-600/40 rounded px-1" title="Médico: reparación/turno">💊+{player.crewBonuses.medicoHeal}</span>
+                )}
+                {player.crewBonuses.comandanteEnergy > 0 && (
+                  <span className="text-xs bg-yellow-900/50 border border-yellow-600/40 rounded px-1" title="Comandante: energía/turno">👑+{player.crewBonuses.comandanteEnergy}</span>
+                )}
+                {player.crewBonuses.saboteadorActive && (
+                  <span className="text-xs bg-orange-900/50 border border-orange-600/40 rounded px-1" title="Saboteador activo">🔪🔥</span>
+                )}
+                {player.crewBonuses.comercianteCredits > 0 && (
+                  <span className="text-xs bg-yellow-900/50 border border-yellow-600/40 rounded px-1" title="Comerciante: créditos bonus">💰+{player.crewBonuses.comercianteCredits}</span>
+                )}
+                {player.crewBonuses.psiquicoDraw > 0 && (
+                  <span className="text-xs bg-purple-900/50 border border-purple-600/40 rounded px-1" title="Psíquico: carta extra/turno">🔮+{player.crewBonuses.psiquicoDraw}</span>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
@@ -565,6 +593,34 @@ export const CombatInterface: React.FC<CombatInterfaceProps> = ({ combatState, o
               </div>
             </div>
             <StatusBar statuses={enemy.statuses} />
+            {enemy.systems && enemy.systems.length > 0 && (
+              <div className="mt-2 space-y-1">
+                <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">Sistemas</p>
+                {enemy.systems.map(sys => (
+                  <div key={sys.id} className="flex items-center gap-1">
+                    <span className="text-xs">{sys.icon}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex justify-between items-center">
+                        <span className={`text-xs truncate ${sys.disabled ? 'text-red-400 line-through' : 'text-gray-300'}`}>
+                          {sys.name}
+                        </span>
+                        {sys.disabled && (
+                          <span className="text-xs text-orange-400 ml-1">
+                            {sys.repairCountdown > 0 ? `⟳${sys.repairCountdown}` : '✓'}
+                          </span>
+                        )}
+                      </div>
+                      <div className="progress-bar-bg h-1">
+                        <div
+                          className={`progress-bar-fill ${sys.disabled ? 'bg-gray-600' : 'bg-purple-500'}`}
+                          style={{ width: `${(sys.hp / sys.maxHp) * 100}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>
