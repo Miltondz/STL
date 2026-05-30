@@ -6,6 +6,7 @@ import { getAllCards } from '../data';
 import { ParticleBurst } from './ParticleBurst';
 import { getPlanetImageForNode } from '../services/imageRegistry';
 import { sfx } from '../services/soundManager';
+import { ALL_RELICS } from '../services/relicEngine';
 
 // Componente para números de daño flotantes
 interface FloatingNumber {
@@ -226,6 +227,25 @@ const CombatResourceInfo: React.FC<{ label: string, value: number, icon: string 
     </div>
 )
 
+const RelicStrip: React.FC<{ relicIds: string[] }> = ({ relicIds }) => {
+    if (!relicIds || relicIds.length === 0) return null;
+    return (
+        <div className="flex flex-wrap gap-1 items-center px-1">
+            {relicIds.map(id => {
+                const relic = ALL_RELICS[id];
+                if (!relic) return null;
+                return (
+                    <div key={id}
+                         className="w-7 h-7 flex items-center justify-center rounded-full bg-gray-800/80 border border-yellow-600/40 text-sm cursor-help hover:border-yellow-400 hover:bg-gray-700/80 transition-colors"
+                         title={`${relic.name}: ${relic.description}`}>
+                        {relic.icon}
+                    </div>
+                );
+            })}
+        </div>
+    );
+};
+
 const CombatLog: React.FC<{ logs: string[] }> = ({ logs }) => {
     const logContainerRef = useRef<HTMLDivElement>(null);
     useEffect(() => {
@@ -374,15 +394,12 @@ export const CombatInterface: React.FC<CombatInterfaceProps> = ({ combatState, o
                 setCardEffect(effects[Math.floor(Math.random() * effects.length)]);
 
                 effectTimerRef.current = setTimeout(() => {
-                    setCardEffect('cardfx-turbulence');
-                    setTimeout(() => {
-                        onPlayCard(cardInstance.instanceId);
-                        setPlayedCard(null);
-                        setCardEffect('');
-                        setUsedCards(prev => [...prev, cardInstance]);
-                        setIsCardPlaying(false);
-                    }, 300);
-                }, 250);
+                    onPlayCard(cardInstance.instanceId);
+                    setPlayedCard(null);
+                    setCardEffect('');
+                    setUsedCards(prev => [...prev, cardInstance]);
+                    setIsCardPlaying(false);
+                }, 100);
             }, 0);
         }
     };
@@ -395,7 +412,7 @@ export const CombatInterface: React.FC<CombatInterfaceProps> = ({ combatState, o
             sfx.enemyTurn();
             onEndTurn();
             setIsEnemyTurn(false);
-        }, 900);
+        }, 400);
     };
 
   return (
@@ -625,6 +642,13 @@ export const CombatInterface: React.FC<CombatInterfaceProps> = ({ combatState, o
         </div>
       </div>
 
+      {/* Banda de Reliquias */}
+      {combatState.relics && combatState.relics.length > 0 && (
+        <div className="flex-shrink-0 px-1 py-0.5 bg-gray-900/40 rounded border border-yellow-600/20">
+          <RelicStrip relicIds={combatState.relics} />
+        </div>
+      )}
+
       {/* Fila Inferior: Mano de Cartas y Controles */}
       <div className="flex gap-3 h-80 items-stretch">
         {/* Izquierda: Info de Pilas y Cartas Jugadas */}
@@ -697,12 +721,24 @@ export const CombatInterface: React.FC<CombatInterfaceProps> = ({ combatState, o
                 margin: `0 ${xMargin}px`,
             };
 
+            const artilleroBonus = player.crewBonuses?.artilleroBonus || 0;
+            const hits = cardData.hits || 1;
+            const baseVal = (cardData.value || 0) + (cardInstance.affix?.valueModifier || 0);
+            const dmgPreview = cardData.type === 'Attack' && baseVal > 0
+              ? hits > 1 ? `⚔ ${baseVal + artilleroBonus}×${hits}` : `⚔ ${baseVal + artilleroBonus}`
+              : null;
+
             return (
               <div
                 key={cardInstance.instanceId}
                 style={cardStyle}
                 className="relative hover:!z-50 hover:!transform hover:!scale-110 hover:-translate-y-8 transition-transform duration-300"
               >
+                {dmgPreview && (
+                  <div className="absolute -top-5 left-1/2 -translate-x-1/2 bg-red-900/80 border border-red-500/50 rounded px-1.5 py-0.5 text-xs text-red-300 font-orbitron whitespace-nowrap pointer-events-none z-10">
+                    {dmgPreview}
+                  </div>
+                )}
                 <Card
                   cardInstance={cardInstance}
                   onClick={() => handleCardClick(cardInstance)}
@@ -745,14 +781,14 @@ export const CombatInterface: React.FC<CombatInterfaceProps> = ({ combatState, o
             </button>
           )}
           
-          {/* Recursos: Energía, Fuego, Maniobra */}
+          {/* Recursos: Energía, + Fuego/Maniobra solo si tienen valor */}
           <div className="flex items-center justify-center gap-1 flex-shrink-0 my-1">
             <div className="flex flex-col items-center">
               <span className="font-orbitron text-lg font-bold text-cyan-300">{player.energy}</span>
               <span className="text-xs text-gray-400">⚡</span>
             </div>
-            <CombatResourceInfo label="Fuego" value={player.fuego || 0} icon="💥" />
-            <CombatResourceInfo label="Maniobra" value={player.maniobra || 0} icon="🚀" />
+            {(player.fuego || 0) > 0 && <CombatResourceInfo label="Fuego" value={player.fuego || 0} icon="💥" />}
+            {(player.maniobra || 0) > 0 && <CombatResourceInfo label="Maniobra" value={player.maniobra || 0} icon="🚀" />}
           </div>
           
           {/* Divisor */}

@@ -229,7 +229,13 @@ function App() {
         <CombatInterface combatState={activeCombat} onPlayCard={handlePlayCard} onEndTurn={handleEndTurn} onCombatComplete={handleCombatComplete} onEscape={import.meta.env.DEV ? handleEscapeCombat : undefined} currentNodeId={currentNodeId} />
       )}
       {gamePhase === 'CARD_REWARD' && cardRewards.length > 0 && (
-          <CardRewardScreen cardIds={cardRewards} onCardSelect={handleCardRewardSelect} title={rewardTitle} />
+          <CardRewardScreen
+            cardIds={cardRewards}
+            onCardSelect={handleCardRewardSelect}
+            onSkip={() => handleCardRewardSelect('')}
+            title={rewardTitle}
+            playerDeckSize={playerState?.deck.length}
+          />
       )}
       {gamePhase === 'RELIC_REWARD' && relicRewards.length > 0 && (
           <RelicRewardScreen relicIds={relicRewards} onSelect={handleRelicRewardSelect} />

@@ -417,9 +417,13 @@ export const useGameHandlers = () => {
     (cardId: string) => {
       if (!playerState) return;
 
-      const newCardInstance = createCardInstance(cardId);
-      setPlayerState({ ...playerState, deck: [...playerState.deck, newCardInstance] });
-      addLog(`"${getAllCards()[cardId]?.name ?? cardId}" añadido a tu mazo.`);
+      if (cardId) {
+        const newCardInstance = createCardInstance(cardId);
+        setPlayerState({ ...playerState, deck: [...playerState.deck, newCardInstance] });
+        addLog(`"${getAllCards()[cardId]?.name ?? cardId}" añadido a tu mazo.`);
+      } else {
+        addLog('Recompensa de carta saltada.');
+      }
       setCardRewards([]);
 
       if (pendingLevelUps > 0) {

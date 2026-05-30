@@ -98,6 +98,19 @@ const getShopTokenImage = (nodeId: number): string => {
 
 // SVG circle (clickable area) for node; planet image rendered inside
 
+const NODE_TYPE_BADGE: Record<NodeType, { label: string; color: string }> = {
+  [NodeType.START]:         { label: '▶', color: '#4ade80' },
+  [NodeType.BATTLE]:        { label: '⚔', color: '#f87171' },
+  [NodeType.ELITE]:         { label: '★', color: '#f472b6' },
+  [NodeType.ENCOUNTER]:     { label: '?', color: '#facc15' },
+  [NodeType.HAZARD]:        { label: '⚠', color: '#fb923c' },
+  [NodeType.SHOP]:          { label: '$', color: '#60a5fa' },
+  [NodeType.REST]:          { label: '+', color: '#2dd4bf' },
+  [NodeType.MINI_BOSS]:     { label: '☠', color: '#c084fc' },
+  [NodeType.SPECIAL_EVENT]: { label: '◈', color: '#67e8f9' },
+  [NodeType.END]:           { label: '↑', color: '#bbf7d0' },
+};
+
 const MapNode: React.FC<{ node: NodeTypeData; allNodes: NodeTypeData[]; isCurrent: boolean; isAvailable: boolean; onSelect: () => void }> = React.memo(({ node, allNodes, isCurrent, isAvailable, onSelect }) => {
   const scale = isCurrent ? 1.3 : 1.0;
   const opacity = node.visited && !isCurrent ? 0.7 : 1;
@@ -231,6 +244,21 @@ const MapNode: React.FC<{ node: NodeTypeData; allNodes: NodeTypeData[]; isCurren
       {/* Visited Indicator */}
       {node.visited && !isCurrent && (
         <circle r="0.5" cx="2.5" cy="-2.5" fill="#34d399" stroke="#1f2937" strokeWidth="0.1" style={{ pointerEvents: 'none' }} />
+      )}
+
+      {/* Node Type Badge */}
+      {NODE_TYPE_BADGE[node.type] && (
+        <text
+          x="0"
+          y="4.2"
+          textAnchor="middle"
+          fontSize="2.2"
+          fill={NODE_TYPE_BADGE[node.type].color}
+          opacity={node.visited && !isCurrent ? 0.5 : 0.85}
+          style={{ pointerEvents: 'none', userSelect: 'none', fontFamily: 'monospace' }}
+        >
+          {NODE_TYPE_BADGE[node.type].label}
+        </text>
       )}
     </g>
   );
